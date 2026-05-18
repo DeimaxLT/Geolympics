@@ -6,145 +6,231 @@
   <meta name="theme-color" content="#04100a" />
   <title>Geolympics — Prisijungimas</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    .lang-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-muted);
+      font-family: var(--font-body);
+      font-size: 13px;
+      padding: 6px 14px;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .lang-btn:hover { border-color: var(--border-hi); color: var(--accent); }
+    .lang-bar { position: absolute; top: 16px; right: 16px; z-index: 10; }
+  </style>
 </head>
 <body>
- 
+
   <!-- ══════════════════════════════════════════
        SCREEN 1: LOGIN
   ══════════════════════════════════════════ -->
   <div id="login-screen" class="page">
- 
+    <div class="lang-bar"><button class="lang-btn" id="lang-btn">🌐 EN</button></div>
+
     <div class="logo">
       <span class="logo-icon">🧭</span>
       <h1>GEOLYMPICS</h1>
-      <p class="tagline">Geocaching varžybos · 2026</p>
+      <p class="tagline" id="t-tagline">Geocaching varžybos · 2026</p>
     </div>
- 
+
     <div class="card" style="animation-delay:0.15s">
-      <div class="card-title">⛳ Prisijungimas</div>
- 
-      <label for="nickname-input">Jūsų geocaching slapyvardis</label>
+      <div class="card-title" id="t-card-title">⛳ Prisijungimas</div>
+      <label for="nickname-input" id="t-label">Jūsų geocaching slapyvardis</label>
       <input
         type="text"
         id="nickname-input"
-        placeholder="pvz. NightWalker99"
+        placeholder="pvz. Herkus220"
         maxlength="20"
         autocomplete="off"
         autocorrect="off"
         autocapitalize="off"
         spellcheck="false"
       />
- 
       <button class="btn btn-primary" id="login-btn">Prisijungti →</button>
       <p class="error-msg" id="login-error"></p>
     </div>
- 
+
     <p class="footer">Geolympics · Klaipėda 2026</p>
   </div>
- 
+
   <!-- ══════════════════════════════════════════
        SCREEN 2: WAITING ROOM
   ══════════════════════════════════════════ -->
   <div id="waiting-screen" class="page hidden">
- 
+    <div class="lang-bar"><button class="lang-btn" id="lang-btn-2">🌐 EN</button></div>
+
     <div class="waiting-content">
-      <!-- Animated compass ring -->
-      <div class="pulse-ring">
-        <span class="compass-emoji">🧭</span>
-      </div>
- 
-      <h2>Greitai prasidės!</h2>
-      <p>Laukite organizatorių signalo...</p>
- 
+      <div class="pulse-ring"><span class="compass-emoji">🧭</span></div>
+      <h2 id="t-wait-title">Greitai prasidės!</h2>
+      <p id="t-wait-sub">Laukite organizatorių signalo...</p>
       <div class="player-badge">
-        👤 Sveiki, <strong id="waiting-nickname">—</strong>
+        👤 <span id="t-welcome">Sveiki,</span> <strong id="waiting-nickname">—</strong>
       </div>
- 
-      <div style="margin-top:32px; color: var(--text-muted); font-size:13px; animation: blink 2s ease-in-out infinite;">
+      <div style="margin-top:32px;color:var(--text-muted);font-size:13px;animation:blink 2s ease-in-out infinite;" id="t-wait-blink">
         ⏳ Laukiama starto signalo...
       </div>
     </div>
- 
+
     <p class="footer">Geolympics · Klaipėda 2026</p>
   </div>
- 
-  <!-- ══════════════════════════════════════════
-       FIREBASE SDK (v8 compat — veikia GitHub Pages)
-  ══════════════════════════════════════════ -->
+
+  <!-- FIREBASE -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
- 
-  <!-- Jūsų Firebase konfigūracija -->
   <script src="firebase-config.js"></script>
- 
-  <!-- ══════════════════════════════════════════
-       PUSLAPIO LOGIKA
-  ══════════════════════════════════════════ -->
+
   <script>
   (function () {
     'use strict';
- 
-    // ── Ekranai ──────────────────────────────────────────────
+
+    // ════════════════════════════════════════
+    //  TRANSLATIONS
+    // ════════════════════════════════════════
+    const TR = {
+      lt: {
+        tagline:      'Geocaching varžybos · 2026',
+        cardTitle:    '⛳ Prisijungimas',
+        label:        'Jūsų geocaching slapyvardis',
+        loginBtn:     'Prisijungti →',
+        placeholder:  'pvz. Herkus220',
+        connecting:   'Jungiamasi...',
+        waitTitle:    'Greitai prasidės!',
+        waitSub:      'Laukite organizatorių signalo...',
+        welcome:      'Sveiki,',
+        waitBlink:    '⏳ Laukiama starto signalo...',
+        errEmpty:     'Įveskite slapyvardį!',
+        errShort:     'Slapyvardis per trumpas (min. 2 simboliai).',
+        errChars:     'Naudokite tik raides, skaičius ir _-',
+        errDupe:      'Šis slapyvardis jau naudojamas! Pasirinkite kitą.',
+        errConn:      'Klaida. Patikrinkite interneto ryšį.',
+        langBtn:      '🌐 EN',
+      },
+      en: {
+        tagline:      'Geocaching competition · 2026',
+        cardTitle:    '⛳ Login',
+        label:        'Your geocaching nickname',
+        loginBtn:     'Join →',
+        placeholder:  'e.g. Herkus220',
+        connecting:   'Connecting...',
+        waitTitle:    'Starting soon!',
+        waitSub:      'Waiting for the organiser\'s signal...',
+        welcome:      'Welcome,',
+        waitBlink:    '⏳ Waiting for start signal...',
+        errEmpty:     'Please enter a nickname!',
+        errShort:     'Nickname too short (min. 2 characters).',
+        errChars:     'Use only letters, numbers and _-',
+        errDupe:      'Nickname already taken! Choose another.',
+        errConn:      'Error. Check your internet connection.',
+        langBtn:      '🌐 LT',
+      }
+    };
+
+    let lang = localStorage.getItem('geolympics_lang') || 'lt';
+
+    function applyLang() {
+      const t = TR[lang];
+      setText('t-tagline',    t.tagline);
+      setText('t-card-title', t.cardTitle);
+      setText('t-label',      t.label);
+      setText('t-wait-title', t.waitTitle);
+      setText('t-wait-sub',   t.waitSub);
+      setText('t-welcome',    t.welcome);
+      setText('t-wait-blink', t.waitBlink);
+      setText('lang-btn',     t.langBtn);
+      setText('lang-btn-2',   t.langBtn);
+      const loginBtnEl = document.getElementById('login-btn');
+      if (loginBtnEl && !loginBtnEl.disabled) loginBtnEl.textContent = t.loginBtn;
+      const inp = document.getElementById('nickname-input');
+      if (inp) inp.placeholder = t.placeholder;
+    }
+
+    function setText(id, text) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    }
+
+    ['lang-btn', 'lang-btn-2'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.addEventListener('click', () => {
+        lang = lang === 'lt' ? 'en' : 'lt';
+        localStorage.setItem('geolympics_lang', lang);
+        applyLang();
+      });
+    });
+
+    applyLang();
+
+    // ════════════════════════════════════════
+    //  ELEMENTS
+    // ════════════════════════════════════════
     const loginScreen   = document.getElementById('login-screen');
     const waitingScreen = document.getElementById('waiting-screen');
     const loginBtn      = document.getElementById('login-btn');
     const nicknameInput = document.getElementById('nickname-input');
     const loginError    = document.getElementById('login-error');
     const waitingNick   = document.getElementById('waiting-nickname');
- 
-    // Jei žaidėjas jau prisijungęs ir žaidimas pradėtas — siųsti į žaidimą
+
+    // ════════════════════════════════════════
+    //  RESET BUG FIX
+    //  After reset, player record is deleted from Firebase.
+    //  If we blindly redirect savedNick → game.html, we get
+    //  an infinite loop (game.html finds no record → back to
+    //  index.html → sees savedNick+started=true → game.html…)
+    //  Fix: always verify player record EXISTS before redirecting.
+    // ════════════════════════════════════════
     const savedNick = localStorage.getItem('geolympics_nick');
     if (savedNick) {
-      db.ref('game/started').once('value').then(snap => {
-        if (snap.val() === true) {
-          window.location.href = 'game.html';
-        } else {
-          // Pereiti į laukimo ekraną
-          showWaiting(savedNick);
-        }
-      });
-    }
- 
-    // ── Prisijungimo mygtukas ─────────────────────────────────
-    loginBtn.addEventListener('click', handleLogin);
-    nicknameInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') handleLogin();
-    });
- 
-    function handleLogin() {
-      const nick = nicknameInput.value.trim();
- 
-      // Validacija
-      if (!nick) {
-        showError('Įveskite slapyvardį!');
-        return;
-      }
-      if (nick.length < 2) {
-        showError('Slapyvardis per trumpas (min. 2 simboliai).');
-        return;
-      }
-      if (!/^[a-zA-Z0-9ąčęėįšųūžĄČĘĖĮŠŲŪŽ _-]+$/.test(nick)) {
-        showError('Slapyvardyje naudokite tik raides, skaičius ir _-');
-        return;
-      }
- 
-      loginBtn.disabled = true;
-      loginBtn.innerHTML = '<span class="spinner"></span>Jungiamasi...';
-      clearError();
- 
-      // Patikrinti ar slapyvardis užimtas
-      const playerRef = db.ref('players/' + safeKey(nick));
- 
-      playerRef.once('value').then(snap => {
-        if (snap.exists()) {
-          showError('Šis slapyvardis jau naudojamas! Pasirinkite kitą.');
-          loginBtn.disabled = false;
-          loginBtn.innerHTML = 'Prisijungti →';
+      const savedKey = localStorage.getItem('geolympics_key') || safeKey(savedNick);
+      Promise.all([
+        db.ref('game/started').once('value'),
+        db.ref('players/' + savedKey).once('value')
+      ]).then(([gameSnap, playerSnap]) => {
+        if (!playerSnap.exists()) {
+          // Player was wiped by reset — clear and show login
+          clearSession();
           return;
         }
- 
-        // Įrašyti žaidėją į Firebase
-        return playerRef.set({
+        if (gameSnap.val() === true) {
+          window.location.href = 'game.html';
+        } else {
+          showWaiting(savedNick);
+        }
+      }).catch(clearSession);
+    }
+
+    // ════════════════════════════════════════
+    //  LOGIN
+    // ════════════════════════════════════════
+    loginBtn.addEventListener('click', handleLogin);
+    nicknameInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+
+    function handleLogin() {
+      const nick = nicknameInput.value.trim();
+      const t = TR[lang];
+
+      if (!nick)          { showError(t.errEmpty); return; }
+      if (nick.length < 2){ showError(t.errShort); return; }
+      if (!/^[a-zA-Z0-9ąčęėįšųūžĄČĘĖĮŠŲŪŽ _-]+$/.test(nick)) {
+        showError(t.errChars); return;
+      }
+
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = `<span class="spinner"></span>${t.connecting}`;
+      clearError();
+
+      const key = safeKey(nick);
+      db.ref('players/' + key).once('value').then(snap => {
+        if (snap.exists()) {
+          showError(t.errDupe);
+          loginBtn.disabled = false;
+          loginBtn.textContent = t.loginBtn;
+          return Promise.reject('duplicate');
+        }
+        return db.ref('players/' + key).set({
           nickname:        nick,
           currentWaypoint: 1,
           startTime:       null,
@@ -153,49 +239,65 @@
         });
       })
       .then(() => {
-        // Išsaugoti slapyvardį naršyklėje
         localStorage.setItem('geolympics_nick', nick);
-        localStorage.setItem('geolympics_key',  safeKey(nick));
+        localStorage.setItem('geolympics_key',  key);
         showWaiting(nick);
       })
       .catch(err => {
+        if (err === 'duplicate') return;
         console.error(err);
-        showError('Klaida. Patikrinkite interneto ryšį.');
+        showError(TR[lang].errConn);
         loginBtn.disabled = false;
-        loginBtn.innerHTML = 'Prisijungti →';
+        loginBtn.textContent = TR[lang].loginBtn;
       });
     }
- 
-    // ── Laukimo ekranas ───────────────────────────────────────
+
+    // ════════════════════════════════════════
+    //  WAITING SCREEN
+    // ════════════════════════════════════════
+    let gameListenerRef = null;
+
     function showWaiting(nick) {
       loginScreen.classList.add('hidden');
       waitingScreen.classList.remove('hidden');
       waitingNick.textContent = nick;
- 
-      // Klausyti Firebase: kai gameStarted = true → eiti į žaidimą
-      db.ref('game/started').on('value', snap => {
+
+      // Always detach before re-attaching to avoid duplicate listeners
+      if (gameListenerRef) {
+        db.ref('game/started').off('value', gameListenerRef);
+      }
+
+      gameListenerRef = function(snap) {
         if (snap.val() === true) {
-          window.location.href = 'game.html';
+          const key = localStorage.getItem('geolympics_key');
+          // Verify record still exists (guard against mid-session reset)
+          db.ref('players/' + key).once('value').then(pSnap => {
+            if (pSnap.exists()) {
+              window.location.href = 'game.html';
+            } else {
+              clearSession();
+              window.location.reload();
+            }
+          });
         }
-      });
+      };
+
+      db.ref('game/started').on('value', gameListenerRef);
     }
- 
-    // ── Pagalbinės funkcijos ──────────────────────────────────
-    function showError(msg) {
-      loginError.textContent = msg;
+
+    // ════════════════════════════════════════
+    //  HELPERS
+    // ════════════════════════════════════════
+    function showError(msg) { loginError.textContent = msg; }
+    function clearError()   { loginError.textContent = ''; }
+    function safeKey(n)     { return n.replace(/[.#$\[\]/]/g, '_'); }
+    function clearSession() {
+      localStorage.removeItem('geolympics_nick');
+      localStorage.removeItem('geolympics_key');
     }
- 
-    function clearError() {
-      loginError.textContent = '';
-    }
- 
-    // Firebase raktai negali turėti . # $ [ ] /
-    function safeKey(nick) {
-      return nick.replace(/[.#$\[\]/]/g, '_');
-    }
- 
+
   })();
   </script>
- 
+
 </body>
 </html>
