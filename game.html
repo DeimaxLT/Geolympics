@@ -35,7 +35,7 @@
 
     <!-- Koordinačių kortelė -->
     <div class="coords-card">
-      <p class="waypoint-label">Einamoji stotis</p>
+      <p class="waypoint-label">Einamasis waypoint</p>
       <div class="waypoint-num" id="wp-number">1</div>
       <p class="coords-label">📍 Koordinatės</p>
       <div class="coords-value" id="coords-display">—</div>
@@ -337,23 +337,23 @@
           updates['players/' + playerKey + '/finishTime'] = now;
           updates['players/' + playerKey + '/currentWaypoint'] = nextWp;
           db.ref().update(updates).then(() => showFinishScreen(now));
-          showScanMsg('🏆 Puiku! Tai paskutinė stotis!', 'success');
+          showScanMsg('🏆 Puiku! Tai paskutinis waypoint!', 'success');
         } else {
           // ➡️ Kita stotis
           updates['players/' + playerKey + '/currentWaypoint'] = nextWp;
           db.ref().update(updates).then(() => {
             currentWaypoint = nextWp;
             updateUI(nextWp);
-            showToast('✅ Stotis ' + (nextWp - 1) + ' užfiksuota! Einame prie ' + nextWp + '...', 'success');
+            showToast('✅ Waypoint ' + (nextWp - 1) + ' užfiksuota! Einame prie ' + nextWp + '...', 'success');
             hideScanMsg();
           });
-          showScanMsg('✅ Teisingai! Eikite į kitą stotį.', 'success');
+          showScanMsg('✅ Teisingai! Eikite į kitą waypoint.', 'success');
         }
       } else {
         // ❌ Neteisingas QR
         const wpNum = extractWaypointNum(code);
         if (wpNum !== null && wpNum !== currentWaypoint) {
-          showScanMsg(`❌ Tai ${wpNum}-os stotis, o reikia ${currentWaypoint}-os. Ieškokite tinkamo QR!`, 'error');
+          showScanMsg(`❌ Tai ${wpNum}-os waypoint, o reikia ${currentWaypoint}-os. Ieškokite tinkamo QR!`, 'error');
         } else {
           showScanMsg('❌ Neatpažintas QR kodas. Bandykite dar kartą.', 'error');
         }
