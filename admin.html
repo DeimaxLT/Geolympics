@@ -116,7 +116,7 @@
     // ║  ⚠️  SLAPTAŽODIS — PAKEISKITE ŠI!        ║
     // ║  Change this password before deploying!   ║
     // ╚═══════════════════════════════════════════╝
-    const ADMIN_PASSWORD = 'geolympics2025';
+    const ADMIN_PASSWORD = 'Deimax20122';
     const TOTAL_WAYPOINTS = 10;
 
     // ── Elementai ─────────────────────────────────────────────
@@ -186,7 +186,7 @@
         if (ended) {
           statusPill.className = 'status-pill ended';
           statusText.textContent = 'Žaidimas baigtas';
-          startBtn.disabled = true;
+          startBtn.disabled = false;   // allow restarting
           endBtn.disabled   = true;
         } else if (started) {
           statusPill.className = 'status-pill active';
@@ -231,16 +231,21 @@
       if (!confirm('⚠️ RESET: Ištrinti VISUS žaidėjus ir pradėti iš naujo?')) return;
       if (!confirm('Ar tikrai? Šis veiksmas NEGRĮŽTAMAS!')) return;
 
-      const updates = {
-        'game/started':   false,
-        'game/ended':     false,
-        'game/startTime': null,
-        'players':        null
-      };
-
-      db.ref().update(updates).then(() => {
-        showToast('🔄 Žaidimas nustatytas iš naujo!', '');
-      });
+      // Must use remove() to fully delete the players node,
+      // then set game back to a clean state
+      db.ref('players').remove()
+        .then(() => db.ref('game').set({
+          started:   false,
+          ended:     false,
+          startTime: null
+        }))
+        .then(() => {
+          showToast('🔄 Žaidimas nustatytas iš naujo!', 'success');
+        })
+        .catch(err => {
+          console.error(err);
+          showToast('❌ Reset nepavyko: ' + err.message, 'error');
+        });
     });
 
     // ── Stotelių forma ────────────────────────────────────────
