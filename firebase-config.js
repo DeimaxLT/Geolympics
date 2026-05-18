@@ -15,6 +15,8 @@ const firebaseConfig = {
   appId: "1:601087640383:web:0a071bd50259b5e002498a",
   measurementId: "G-SW02YJ3M0Z"
 };
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database(); 
 
 // ============================================================
 //  DEFAULT WAYPOINTS — Keiskite koordinates čia arba per Admin
