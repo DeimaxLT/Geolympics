@@ -8,21 +8,21 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
+ 
   <!-- ══════════════════════════════════════════
        SCREEN 1: LOGIN
   ══════════════════════════════════════════ -->
   <div id="login-screen" class="page">
-
+ 
     <div class="logo">
       <span class="logo-icon">🧭</span>
       <h1>GEOLYMPICS</h1>
-      <p class="tagline">Geocaching varžybos · 2025</p>
+      <p class="tagline">Geocaching varžybos · 2026</p>
     </div>
-
+ 
     <div class="card" style="animation-delay:0.15s">
       <div class="card-title">⛳ Prisijungimas</div>
-
+ 
       <label for="nickname-input">Jūsų geocaching slapyvardis</label>
       <input
         type="text"
@@ -34,56 +34,56 @@
         autocapitalize="off"
         spellcheck="false"
       />
-
+ 
       <button class="btn btn-primary" id="login-btn">Prisijungti →</button>
       <p class="error-msg" id="login-error"></p>
     </div>
-
-    <p class="footer">Geolympics · Klaipėda 2025</p>
+ 
+    <p class="footer">Geolympics · Klaipėda 2026</p>
   </div>
-
+ 
   <!-- ══════════════════════════════════════════
        SCREEN 2: WAITING ROOM
   ══════════════════════════════════════════ -->
   <div id="waiting-screen" class="page hidden">
-
+ 
     <div class="waiting-content">
       <!-- Animated compass ring -->
       <div class="pulse-ring">
         <span class="compass-emoji">🧭</span>
       </div>
-
+ 
       <h2>Greitai prasidės!</h2>
       <p>Laukite organizatorių signalo...</p>
-
+ 
       <div class="player-badge">
         👤 Sveiki, <strong id="waiting-nickname">—</strong>
       </div>
-
+ 
       <div style="margin-top:32px; color: var(--text-muted); font-size:13px; animation: blink 2s ease-in-out infinite;">
         ⏳ Laukiama starto signalo...
       </div>
     </div>
-
-    <p class="footer">Geolympics · Klaipėda 2025</p>
+ 
+    <p class="footer">Geolympics · Klaipėda 2026</p>
   </div>
-
+ 
   <!-- ══════════════════════════════════════════
        FIREBASE SDK (v8 compat — veikia GitHub Pages)
   ══════════════════════════════════════════ -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
+ 
   <!-- Jūsų Firebase konfigūracija -->
   <script src="firebase-config.js"></script>
-
+ 
   <!-- ══════════════════════════════════════════
        PUSLAPIO LOGIKA
   ══════════════════════════════════════════ -->
   <script>
   (function () {
     'use strict';
-
+ 
     // ── Ekranai ──────────────────────────────────────────────
     const loginScreen   = document.getElementById('login-screen');
     const waitingScreen = document.getElementById('waiting-screen');
@@ -91,7 +91,7 @@
     const nicknameInput = document.getElementById('nickname-input');
     const loginError    = document.getElementById('login-error');
     const waitingNick   = document.getElementById('waiting-nickname');
-
+ 
     // Jei žaidėjas jau prisijungęs ir žaidimas pradėtas — siųsti į žaidimą
     const savedNick = localStorage.getItem('geolympics_nick');
     if (savedNick) {
@@ -104,16 +104,16 @@
         }
       });
     }
-
+ 
     // ── Prisijungimo mygtukas ─────────────────────────────────
     loginBtn.addEventListener('click', handleLogin);
     nicknameInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') handleLogin();
     });
-
+ 
     function handleLogin() {
       const nick = nicknameInput.value.trim();
-
+ 
       // Validacija
       if (!nick) {
         showError('Įveskite slapyvardį!');
@@ -127,14 +127,14 @@
         showError('Slapyvardyje naudokite tik raides, skaičius ir _-');
         return;
       }
-
+ 
       loginBtn.disabled = true;
       loginBtn.innerHTML = '<span class="spinner"></span>Jungiamasi...';
       clearError();
-
+ 
       // Patikrinti ar slapyvardis užimtas
       const playerRef = db.ref('players/' + safeKey(nick));
-
+ 
       playerRef.once('value').then(snap => {
         if (snap.exists()) {
           showError('Šis slapyvardis jau naudojamas! Pasirinkite kitą.');
@@ -142,7 +142,7 @@
           loginBtn.innerHTML = 'Prisijungti →';
           return;
         }
-
+ 
         // Įrašyti žaidėją į Firebase
         return playerRef.set({
           nickname:        nick,
@@ -165,13 +165,13 @@
         loginBtn.innerHTML = 'Prisijungti →';
       });
     }
-
+ 
     // ── Laukimo ekranas ───────────────────────────────────────
     function showWaiting(nick) {
       loginScreen.classList.add('hidden');
       waitingScreen.classList.remove('hidden');
       waitingNick.textContent = nick;
-
+ 
       // Klausyti Firebase: kai gameStarted = true → eiti į žaidimą
       db.ref('game/started').on('value', snap => {
         if (snap.val() === true) {
@@ -179,23 +179,23 @@
         }
       });
     }
-
+ 
     // ── Pagalbinės funkcijos ──────────────────────────────────
     function showError(msg) {
       loginError.textContent = msg;
     }
-
+ 
     function clearError() {
       loginError.textContent = '';
     }
-
+ 
     // Firebase raktai negali turėti . # $ [ ] /
     function safeKey(nick) {
       return nick.replace(/[.#$\[\]/]/g, '_');
     }
-
+ 
   })();
   </script>
-
+ 
 </body>
 </html>
