@@ -4,18 +4,17 @@
 //  (Replace these with YOUR Firebase project values)
 // ============================================================
 
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL:       "https://YOUR_PROJECT_ID-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId:             "YOUR_APP_ID"
+  apiKey: "AIzaSyBFEwTcgwzu5Qp44xu8IUlMpfUIzIdbHyI",
+  authDomain: "geolympics-207f2.firebaseapp.com",
+  databaseURL: "https://geolympics-207f2-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "geolympics-207f2",
+  storageBucket: "geolympics-207f2.firebasestorage.app",
+  messagingSenderId: "601087640383",
+  appId: "1:601087640383:web:0a071bd50259b5e002498a",
+  measurementId: "G-SW02YJ3M0Z"
 };
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
 
 // ============================================================
 //  DEFAULT WAYPOINTS — Keiskite koordinates čia arba per Admin
