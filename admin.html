@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#04100a" />
+  <title>Geolympics — Admin</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════
+       SLAPTAŽODŽIO EKRANAS
+  ══════════════════════════════════════════ -->
+  <div id="password-gate" class="password-gate">
+    <div class="card" style="max-width:340px;text-align:center;width:100%">
+      <span class="lock-icon">🔐</span>
+      <div class="card-title" style="justify-content:center">Admin prieiga</div>
+      <label for="admin-pass">Slaptažodis</label>
+      <input type="password" id="admin-pass" placeholder="Įveskite slaptažodį..." />
+      <button class="btn btn-primary" id="pass-btn">Įeiti →</button>
+      <p class="error-msg" id="pass-error"></p>
+      <br/>
+      <a href="index.html" class="back-link" style="justify-content:center">← Grįžti į prisijungimą</a>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       ADMIN SKYDELIS (rodomas po prisijungimo)
+  ══════════════════════════════════════════ -->
+  <div id="admin-panel" class="page hidden">
+
+    <div class="admin-header" style="width:100%;max-width:480px;">
+      <div class="admin-logo">
+        🧭 GEOLYMPICS
+        <div class="sub">Admin valdymo skydelis</div>
+      </div>
+    </div>
+
+    <!-- Žaidimo būsena -->
+    <div class="status-pill" id="game-status-pill">
+      <span class="dot"></span>
+      <span id="game-status-text">Tikrinama...</span>
+    </div>
+
+    <!-- ── Valdymo mygtukai ── -->
+    <div class="card" style="width:100%;max-width:480px;">
+      <div class="card-title">⚙️ Žaidimo valdymas</div>
+
+      <button class="btn btn-primary" id="start-btn">▶ PRADĖTI ŽAIDIMĄ</button>
+      <button class="btn btn-danger"  id="end-btn">⏹ BAIGTI ŽAIDIMĄ</button>
+      <button class="btn btn-amber"   id="reset-btn">🔄 RESET (ištrinti viską)</button>
+    </div>
+
+    <!-- ── Stotelių koordinatės ── -->
+    <div class="card" style="width:100%;max-width:480px;margin-top:16px;">
+      <div class="card-title">📍 Stotelių koordinatės</div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+        Įveskite koordinates ir spauskite "Išsaugoti į Firebase".
+      </p>
+
+      <div id="waypoints-form"></div>
+
+      <button class="btn btn-outline" id="save-waypoints-btn" style="margin-top:12px;">
+        💾 Išsaugoti koordinates į Firebase
+      </button>
+      <p class="success-msg hidden" id="save-wp-msg">✅ Koordinatės išsaugotos!</p>
+    </div>
+
+    <!-- ── QR kodų generatorius ── -->
+    <div class="card" style="width:100%;max-width:480px;margin-top:16px;">
+      <div class="card-title">🖨️ QR kodų reikšmės</div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+        Kiekvienas QR kodas turi turėti šią reikšmę. Naudokite bet kurį QR generatorių.
+      </p>
+      <div id="qr-values-list"></div>
+    </div>
+
+    <!-- ── Žaidėjų sąrašas ── -->
+    <div class="card" style="width:100%;max-width:480px;margin-top:16px;">
+      <div class="card-title">👥 Žaidėjai (<span id="player-count">0</span>)</div>
+      <ul class="admin-players" id="player-list">
+        <li class="empty-state"><span class="empty-icon">👤</span>Nėra žaidėjų</li>
+      </ul>
+    </div>
+
+    <!-- ── Lyderių lentelė (admin) ── -->
+    <div class="card" style="width:100%;max-width:480px;margin-top:16px;">
+      <div class="card-title" style="color:var(--amber)">🏆 Lyderių lentelė</div>
+      <div id="admin-leaderboard">
+        <div class="empty-state"><span class="empty-icon">⏳</span>Laukiama...</div>
+      </div>
+    </div>
+
+    <p class="footer">Geolympics Admin · Klaipėda 2025</p>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ══════════════════════════════════════════
+       FIREBASE
+  ══════════════════════════════════════════ -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="firebase-config.js"></script>
+
+  <!-- ══════════════════════════════════════════
+       ADMIN LOGIKA
+  ══════════════════════════════════════════ -->
+  <script>
+  (function () {
+    'use strict';
+
+    // ╔═══════════════════════════════════════════╗
+    // ║  ⚠️  SLAPTAŽODIS — PAKEISKITE ŠI!        ║
+    // ║  Change this password before deploying!   ║
+    // ╚═══════════════════════════════════════════╝
+    const ADMIN_PASSWORD = 'geolympics2025';
+    const TOTAL_WAYPOINTS = 10;
+
+    // ── Elementai ─────────────────────────────────────────────
+    const passwordGate  = document.getElementById('password-gate');
+    const adminPanel    = document.getElementById('admin-panel');
+    const adminPassEl   = document.getElementById('admin-pass');
+    const passBtn       = document.getElementById('pass-btn');
+    const passError     = document.getElementById('pass-error');
+
+    const startBtn      = document.getElementById('start-btn');
+    const endBtn        = document.getElementById('end-btn');
+    const resetBtn      = document.getElementById('reset-btn');
+
+    const statusPill    = document.getElementById('game-status-pill');
+    const statusText    = document.getElementById('game-status-text');
+    const playerCount   = document.getElementById('player-count');
+    const playerList    = document.getElementById('player-list');
+
+    const saveWpBtn     = document.getElementById('save-waypoints-btn');
+    const saveWpMsg     = document.getElementById('save-wp-msg');
+    const toastEl       = document.getElementById('toast');
+
+    // Išsaugota sesija
+    if (sessionStorage.getItem('geolympics_admin') === 'true') {
+      showAdminPanel();
+    }
+
+    // ── Slaptažodis ───────────────────────────────────────────
+    passBtn.addEventListener('click', checkPassword);
+    adminPassEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') checkPassword();
+    });
+
+    function checkPassword() {
+      if (adminPassEl.value === ADMIN_PASSWORD) {
+        sessionStorage.setItem('geolympics_admin', 'true');
+        passError.textContent = '';
+        showAdminPanel();
+      } else {
+        passError.textContent = '❌ Neteisingas slaptažodis!';
+        adminPassEl.value = '';
+        adminPassEl.focus();
+      }
+    }
+
+    function showAdminPanel() {
+      passwordGate.classList.add('hidden');
+      adminPanel.classList.remove('hidden');
+      initAdmin();
+    }
+
+    // ── Admin inicializacija ──────────────────────────────────
+    function initAdmin() {
+      buildWaypointForm();
+      buildQRValuesList();
+      listenGameStatus();
+      listenPlayers();
+    }
+
+    // ── Žaidimo būsena ────────────────────────────────────────
+    function listenGameStatus() {
+      db.ref('game').on('value', snap => {
+        const data = snap.val() || {};
+        const started = data.started === true;
+        const ended   = data.ended === true;
+
+        if (ended) {
+          statusPill.className = 'status-pill ended';
+          statusText.textContent = 'Žaidimas baigtas';
+          startBtn.disabled = true;
+          endBtn.disabled   = true;
+        } else if (started) {
+          statusPill.className = 'status-pill active';
+          statusText.textContent = 'Žaidimas vyksta';
+          startBtn.disabled = true;
+          endBtn.disabled   = false;
+        } else {
+          statusPill.className = 'status-pill';
+          statusText.textContent = 'Žaidimas nepradėtas';
+          startBtn.disabled = false;
+          endBtn.disabled   = true;
+        }
+      });
+    }
+
+    // ── Mygtukai ──────────────────────────────────────────────
+    startBtn.addEventListener('click', () => {
+      if (!confirm('Pradėti žaidimą? Visi žaidėjai bus automatiškai perkelti į žaidimo ekraną.')) return;
+
+      const now = Date.now();
+      db.ref('game').update({
+        started:   true,
+        ended:     false,
+        startTime: now
+      }).then(() => {
+        showToast('▶ Žaidimas pradėtas!', 'success');
+      });
+    });
+
+    endBtn.addEventListener('click', () => {
+      if (!confirm('Baigti žaidimą? Žaidėjai bus grąžinti į pradžios puslapį.')) return;
+
+      db.ref('game').update({
+        started: false,
+        ended:   true
+      }).then(() => {
+        showToast('⏹ Žaidimas baigtas.', '');
+      });
+    });
+
+    resetBtn.addEventListener('click', () => {
+      if (!confirm('⚠️ RESET: Ištrinti VISUS žaidėjus ir pradėti iš naujo?')) return;
+      if (!confirm('Ar tikrai? Šis veiksmas NEGRĮŽTAMAS!')) return;
+
+      const updates = {
+        'game/started':   false,
+        'game/ended':     false,
+        'game/startTime': null,
+        'players':        null
+      };
+
+      db.ref().update(updates).then(() => {
+        showToast('🔄 Žaidimas nustatytas iš naujo!', '');
+      });
+    });
+
+    // ── Stotelių forma ────────────────────────────────────────
+    function buildWaypointForm() {
+      const form = document.getElementById('waypoints-form');
+      form.innerHTML = '';
+
+      // Pirma patikrinti ar Firebase turi koordinates
+      db.ref('game/waypoints').once('value').then(snap => {
+        const saved = snap.val() || {};
+
+        for (let i = 1; i <= TOTAL_WAYPOINTS; i++) {
+          const wp = saved[i] || DEFAULT_WAYPOINTS.find(d => d.id === i) || {};
+          const row = document.createElement('div');
+          row.style.cssText = 'margin-bottom:12px;border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--surface2)';
+          row.innerHTML = `
+            <div style="font-family:var(--font-head);font-size:14px;letter-spacing:0.1em;color:var(--accent);margin-bottom:8px;">
+              STOTIS ${i}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">
+              <div>
+                <label style="font-size:11px">Latitude</label>
+                <input type="number" step="0.000001" id="wp-lat-${i}"
+                  value="${wp.lat || ''}" placeholder="55.709400" style="margin-bottom:0"/>
+              </div>
+              <div>
+                <label style="font-size:11px">Longitude</label>
+                <input type="number" step="0.000001" id="wp-lng-${i}"
+                  value="${wp.lng || ''}" placeholder="21.132100" style="margin-bottom:0"/>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:11px">Užuomina (neprivaloma)</label>
+              <input type="text" id="wp-hint-${i}"
+                value="${escHtml(wp.hint || '')}" placeholder="pvz. Prie ąžuolo..." style="margin-bottom:0"/>
+            </div>
+          `;
+          form.appendChild(row);
+        }
+      });
+    }
+
+    saveWpBtn.addEventListener('click', () => {
+      const updates = {};
+      let hasError = false;
+
+      for (let i = 1; i <= TOTAL_WAYPOINTS; i++) {
+        const lat  = parseFloat(document.getElementById('wp-lat-' + i)?.value);
+        const lng  = parseFloat(document.getElementById('wp-lng-' + i)?.value);
+        const hint = document.getElementById('wp-hint-' + i)?.value || '';
+
+        if (isNaN(lat) || isNaN(lng)) {
+          showToast('❌ Stotis ' + i + ': Neteisingos koordinatės!', 'error');
+          hasError = true;
+          break;
+        }
+
+        updates['game/waypoints/' + i] = { lat, lng, hint };
+      }
+
+      if (!hasError) {
+        db.ref().update(updates).then(() => {
+          saveWpMsg.classList.remove('hidden');
+          showToast('💾 Koordinatės išsaugotos!', 'success');
+          setTimeout(() => saveWpMsg.classList.add('hidden'), 3000);
+        });
+      }
+    });
+
+    // ── QR reikšmių sąrašas ───────────────────────────────────
+    function buildQRValuesList() {
+      const container = document.getElementById('qr-values-list');
+      let html = '';
+      for (let i = 1; i <= TOTAL_WAYPOINTS; i++) {
+        const code = 'GEOLYMPICS_WP_' + i;
+        html += `
+          <div style="display:flex;align-items:center;justify-content:space-between;
+               padding:8px 12px;background:var(--surface2);border:1px solid var(--border);
+               border-radius:8px;margin-bottom:6px;gap:8px;">
+            <div>
+              <div style="font-size:11px;color:var(--text-muted);letter-spacing:0.1em">STOTIS ${i}</div>
+              <code style="font-size:14px;color:var(--accent);word-break:break-all;">${code}</code>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="copyCode('${code}', this)">📋</button>
+          </div>
+        `;
+      }
+      container.innerHTML = html;
+    }
+
+    window.copyCode = function(code, btn) {
+      navigator.clipboard.writeText(code).then(() => {
+        btn.textContent = '✅';
+        setTimeout(() => { btn.textContent = '📋'; }, 1500);
+      });
+    };
+
+    // ── Žaidėjų sąrašas ───────────────────────────────────────
+    let gameStartTime = null;
+    db.ref('game/startTime').on('value', s => { gameStartTime = s.val(); });
+
+    function listenPlayers() {
+      db.ref('players').on('value', snap => {
+        const data = snap.val();
+        renderPlayerList(data);
+        renderAdminLeaderboard(data);
+      });
+    }
+
+    function renderPlayerList(data) {
+      if (!data) {
+        playerCount.textContent = '0';
+        playerList.innerHTML = '<li class="empty-state"><span class="empty-icon">👤</span>Nėra žaidėjų</li>';
+        return;
+      }
+
+      const players = Object.values(data);
+      playerCount.textContent = players.length;
+
+      playerList.innerHTML = players.map(p => {
+        const finished = !!p.finishTime;
+        const wpLabel  = finished
+          ? `<span class="p-done">✅ Finišas · ${formatElapsed(p.finishTime - (gameStartTime || 0))}</span>`
+          : `<span class="p-wp">Stotis ${p.currentWaypoint || 1} / 10</span>`;
+
+        return `
+          <li class="admin-player-item">
+            <span class="p-name">${escHtml(p.nickname || '—')}</span>
+            ${wpLabel}
+          </li>
+        `;
+      }).join('');
+    }
+
+    function renderAdminLeaderboard(data) {
+      const container = document.getElementById('admin-leaderboard');
+      if (!data) {
+        container.innerHTML = '<div class="empty-state"><span class="empty-icon">⏳</span>Nėra duomenų</div>';
+        return;
+      }
+
+      const players = Object.values(data);
+      const finished = players
+        .filter(p => p.finishTime)
+        .sort((a, b) => (a.finishTime - (gameStartTime||0)) - (b.finishTime - (gameStartTime||0)));
+
+      const playing = players
+        .filter(p => !p.finishTime)
+        .sort((a, b) => (b.currentWaypoint || 1) - (a.currentWaypoint || 1));
+
+      const all = [...finished, ...playing];
+      if (all.length === 0) {
+        container.innerHTML = '<div class="empty-state">Nėra žaidėjų</div>';
+        return;
+      }
+
+      const medals = ['🥇','🥈','🥉'];
+      const mClass  = ['gold','silver','bronze'];
+
+      container.innerHTML = all.map((p, i) => {
+        const fin    = !!p.finishTime;
+        const rank   = i < 3
+          ? `<span class="lb-rank ${mClass[i]}">${medals[i]}</span>`
+          : `<span class="lb-rank other">${i+1}</span>`;
+        const status = fin
+          ? `<span class="lb-status"><span class="time">${formatElapsed(p.finishTime-(gameStartTime||0))}</span></span>`
+          : `<span class="lb-status"><span class="wp">WP ${p.currentWaypoint||1}/10</span></span>`;
+        return `
+          <div class="lb-entry">
+            ${rank}
+            <span class="lb-name">${escHtml(p.nickname||'—')}</span>
+            ${status}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ── Pagalbinės funkcijos ──────────────────────────────────
+    function formatElapsed(ms) {
+      if (!ms || ms <= 0) return '—';
+      const s = Math.floor(ms / 1000);
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      if (h > 0) return `${h}h ${pad(m)}m ${pad(sec)}s`;
+      return `${pad(m)}m ${pad(sec)}s`;
+    }
+
+    function pad(n) { return String(n).padStart(2, '0'); }
+
+    function escHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    let toastTimer;
+    function showToast(msg, type = '') {
+      clearTimeout(toastTimer);
+      toastEl.textContent = msg;
+      toastEl.className = 'toast ' + type + ' show';
+      toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3500);
+    }
+
+  })();
+  </script>
+
+</body>
+</html>
