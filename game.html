@@ -79,17 +79,40 @@
   ══════════════════════════════════════════ -->
   <div id="finish-screen" class="page hidden">
     <div class="finish-content">
-      <div class="finish-icon">🏆</div>
-      <div class="finish-title">FINIŠAS!</div>
-      <p class="finish-time">
+
+      <!-- Trophy icon -->
+      <div class="finish-icon" id="finish-icon">🏆</div>
+
+      <!-- "Tu esi X-as" -->
+      <div style="font-family:var(--font-head);font-size:20px;letter-spacing:0.12em;color:var(--text-muted);margin-bottom:4px;animation:fadeUp 0.4s 0.2s ease both;opacity:0;animation-fill-mode:both;">
+        TU ESI
+      </div>
+      <div id="finish-place" style="font-family:var(--font-head);font-size:80px;line-height:1;color:var(--amber);text-shadow:0 0 40px rgba(251,191,36,0.4);animation:fadeUp 0.5s 0.3s ease both;opacity:0;animation-fill-mode:both;">
+        —
+      </div>
+      <div id="finish-place-label" style="font-family:var(--font-head);font-size:22px;letter-spacing:0.1em;color:var(--amber);margin-bottom:8px;animation:fadeUp 0.5s 0.35s ease both;opacity:0;animation-fill-mode:both;">
+        VIETA
+      </div>
+
+      <!-- Laikas -->
+      <p class="finish-time" style="animation:fadeUp 0.5s 0.45s ease both;opacity:0;animation-fill-mode:both;">
         Jūsų laikas: <span id="finish-time-val">—</span>
       </p>
-      <div style="margin-top:32px; width:100%; max-width:420px;">
-        <div class="card-title" style="color:var(--amber);font-family:var(--font-head);font-size:22px;letter-spacing:0.06em;margin-bottom:16px;">
+
+      <!-- "Palaukite kitų žaidėjų" -->
+      <div style="margin-top:20px;padding:12px 24px;background:var(--surface2);border:1px solid var(--border);border-radius:999px;font-size:14px;color:var(--text-muted);letter-spacing:0.06em;animation:fadeUp 0.5s 0.55s ease both;opacity:0;animation-fill-mode:both;text-align:center;">
+        ⏳ Palaukite kitų žaidėjų...
+      </div>
+
+      <!-- Live lyderių lentelė -->
+      <div style="margin-top:28px;width:100%;max-width:420px;animation:fadeUp 0.5s 0.65s ease both;opacity:0;animation-fill-mode:both;">
+        <div style="font-family:var(--font-head);font-size:22px;letter-spacing:0.08em;color:var(--amber);margin-bottom:14px;display:flex;align-items:center;gap:8px;">
           🏆 Lyderių lentelė
+          <span style="font-family:var(--font-body);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-left:4px;">• gyva</span>
         </div>
         <div id="finish-leaderboard"></div>
       </div>
+
     </div>
   </div>
 
