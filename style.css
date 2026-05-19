@@ -822,6 +822,191 @@ label {
   text-transform: uppercase;
 }
 
+/* ── COUNTDOWN SCREEN ───────────────────────────────────────── */
+.cd-label {
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.cd-number {
+  font-family: var(--font-head);
+  font-size: clamp(100px, 32vw, 160px);
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: var(--glow-lg);
+  text-align: center;
+  letter-spacing: 0.04em;
+  animation: cdPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes cdPop {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.cd-sub {
+  font-size: 15px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 12px;
+  letter-spacing: 0.06em;
+}
+
+/* ── GAME TIMER BAR ─────────────────────────────────────────── */
+.timer-bar {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  margin-bottom: 14px;
+  gap: 10px;
+  animation: fadeDown 0.4s ease both;
+}
+
+.timer-label {
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.timer-value {
+  font-family: var(--font-head);
+  font-size: 26px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-shadow: var(--glow-sm);
+}
+
+/* When under 5 minutes left */
+.timer-bar.timer-urgent {
+  border-color: rgba(248,113,113,0.4);
+  background: rgba(248,113,113,0.06);
+}
+.timer-bar.timer-urgent .timer-value {
+  color: var(--danger);
+  text-shadow: 0 0 12px rgba(248,113,113,0.4);
+  animation: blink 1s ease-in-out infinite;
+}
+
+/* ── MODE BADGE (solo / group indicator in game header) ─────── */
+.mode-badge-solo {
+  font-size: 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  line-height: 1.4;
+}
+
+/* ── GROUP MEMBERS PANEL (waiting / scanning status) ────────── */
+.group-members-panel {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface2);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.group-members-title {
+  font-family: var(--font-head);
+  font-size: 16px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.group-members-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.group-member-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-mid);
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.group-member-item.scanned {
+  border-color: rgba(74,222,128,0.35);
+  color: var(--accent);
+}
+
+.group-members-info {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 10px;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+/* ── ADMIN GROUP CARDS ──────────────────────────────────────── */
+.admin-group-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  transition: border-color 0.2s;
+}
+.admin-group-card:hover { border-color: var(--border-hi); }
+
+.admin-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.admin-group-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.admin-group-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+.admin-group-members {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-group-member {
+  font-size: 13px;
+  color: var(--text-mid);
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* ── MEDIA QUERIES ──────────────────────────────────────────── */
 @media (min-width: 480px) {
   .card { padding: 36px 32px; }
