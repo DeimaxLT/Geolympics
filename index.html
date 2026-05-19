@@ -6,271 +6,415 @@
   <meta name="theme-color" content="#04100a" />
   <title>Geolympics — Prisijungimas</title>
   <link rel="stylesheet" href="style.css" />
-  <style>
-    .lang-btn {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      color: var(--text-muted);
-      font-family: var(--font-body);
-      font-size: 13px;
-      padding: 6px 14px;
-      cursor: pointer;
-      letter-spacing: 0.06em;
-      transition: border-color 0.2s, color 0.2s;
-    }
-    .lang-btn:hover { border-color: var(--border-hi); color: var(--accent); }
-    .lang-bar { position: absolute; top: 16px; right: 16px; z-index: 10; }
-  </style>
 </head>
 <body>
-
+ 
   <!-- ══════════════════════════════════════════
-       SCREEN 1: LOGIN
+       SCREEN 1: MODE SELECTION
   ══════════════════════════════════════════ -->
-  <div id="login-screen" class="page">
-    <div class="lang-bar"><button class="lang-btn" id="lang-btn">🌐 EN</button></div>
-
+  <div id="mode-screen" class="page">
     <div class="logo">
       <span class="logo-icon">🧭</span>
       <h1>GEOLYMPICS</h1>
-      <p class="tagline" id="t-tagline">Geocaching varžybos · 2026</p>
+      <p class="tagline">Geocaching varžybos · 2026</p>
     </div>
-
-    <div class="card" style="animation-delay:0.15s">
-      <div class="card-title" id="t-card-title">⛳ Prisijungimas</div>
-      <label for="nickname-input" id="t-label">Jūsų geocaching slapyvardis</label>
-      <input
-        type="text"
-        id="nickname-input"
-        placeholder="pvz. Herkus220"
-        maxlength="20"
-        autocomplete="off"
-        autocorrect="off"
-        autocapitalize="off"
-        spellcheck="false"
-      />
+ 
+    <div class="card" style="animation-delay:0.15s;text-align:center;">
+      <div class="card-title" style="justify-content:center">⛳ Pasirinkite režimą</div>
+      <p style="color:var(--text-muted);font-size:14px;margin-bottom:24px;">Žaisite solo ar su grupe?</p>
+ 
+      <button class="btn btn-primary" id="mode-solo-btn" style="margin-bottom:12px;">
+        🧍 Solo
+      </button>
+      <button class="btn btn-outline" id="mode-group-btn">
+        👥 Grupinis (2–4 žmonės)
+      </button>
+    </div>
+ 
+    <p class="footer">Geolympics · Klaipėda 2026</p>
+  </div>
+ 
+  <!-- ══════════════════════════════════════════
+       SCREEN 2: SOLO LOGIN
+  ══════════════════════════════════════════ -->
+  <div id="login-screen" class="page hidden">
+    <div class="logo" style="margin-bottom:24px;">
+      <span class="logo-icon" style="font-size:36px;">🧍</span>
+      <h1 style="font-size:clamp(36px,10vw,56px);">SOLO</h1>
+    </div>
+ 
+    <div class="card" style="animation-delay:0.1s">
+      <div class="card-title">⛳ Prisijungimas</div>
+      <label for="nickname-input">Jūsų geocaching slapyvardis</label>
+      <input type="text" id="nickname-input" placeholder="pvz. Herkus220"
+        maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <button class="btn btn-primary" id="login-btn">Prisijungti →</button>
       <p class="error-msg" id="login-error"></p>
     </div>
-
+ 
+    <button class="btn btn-outline" id="back-to-mode-solo"
+      style="max-width:420px;width:100%;margin-top:16px;">← Atgal</button>
+ 
     <p class="footer">Geolympics · Klaipėda 2026</p>
   </div>
-
+ 
   <!-- ══════════════════════════════════════════
-       SCREEN 2: WAITING ROOM
+       SCREEN 3: GROUP SETUP
+  ══════════════════════════════════════════ -->
+  <div id="group-screen" class="page hidden">
+    <div class="logo" style="margin-bottom:24px;">
+      <span class="logo-icon" style="font-size:36px;">👥</span>
+      <h1 style="font-size:clamp(36px,10vw,56px);">GRUPINIS</h1>
+    </div>
+ 
+    <!-- Step A: Create or Join -->
+    <div id="group-step-choose" class="card" style="animation-delay:0.1s;text-align:center;">
+      <div class="card-title" style="justify-content:center">Grupė</div>
+      <p style="color:var(--text-muted);font-size:14px;margin-bottom:24px;">
+        Sukurkite naują grupę arba prisijunkite prie esamos.
+      </p>
+      <button class="btn btn-primary" id="create-group-btn" style="margin-bottom:12px;">
+        ➕ Sukurti naują grupę
+      </button>
+      <button class="btn btn-outline" id="join-group-btn">
+        🔗 Prisijungti prie grupės
+      </button>
+    </div>
+ 
+    <!-- Step B: Create group — enter name + nickname -->
+    <div id="group-step-create" class="card hidden" style="animation-delay:0.1s;">
+      <div class="card-title">➕ Nauja grupė</div>
+      <label for="group-name-input">Grupės pavadinimas</label>
+      <input type="text" id="group-name-input" placeholder="pvz. LynxTeam"
+        maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <label for="create-nick-input">Jūsų slapyvardis</label>
+      <input type="text" id="create-nick-input" placeholder="pvz. Herkus220"
+        maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <button class="btn btn-primary" id="do-create-btn">Sukurti grupę →</button>
+      <p class="error-msg" id="create-error"></p>
+    </div>
+ 
+    <!-- Step C: Join group — enter group name + nickname -->
+    <div id="group-step-join" class="card hidden" style="animation-delay:0.1s;">
+      <div class="card-title">🔗 Prisijungti</div>
+      <label for="join-group-name-input">Grupės pavadinimas</label>
+      <input type="text" id="join-group-name-input" placeholder="pvz. LynxTeam"
+        maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <label for="join-nick-input">Jūsų slapyvardis</label>
+      <input type="text" id="join-nick-input" placeholder="pvz. Herkus220"
+        maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <button class="btn btn-primary" id="do-join-btn">Prisijungti →</button>
+      <p class="error-msg" id="join-error"></p>
+    </div>
+ 
+    <button class="btn btn-outline" id="back-to-mode-group"
+      style="max-width:420px;width:100%;margin-top:16px;">← Atgal</button>
+ 
+    <p class="footer">Geolympics · Klaipėda 2026</p>
+  </div>
+ 
+  <!-- ══════════════════════════════════════════
+       SCREEN 4: WAITING ROOM (solo & group)
   ══════════════════════════════════════════ -->
   <div id="waiting-screen" class="page hidden">
-    <div class="lang-bar"><button class="lang-btn" id="lang-btn-2">🌐 EN</button></div>
-
     <div class="waiting-content">
-      <div class="pulse-ring"><span class="compass-emoji">🧭</span></div>
-      <h2 id="t-wait-title">Greitai prasidės!</h2>
-      <p id="t-wait-sub">Laukite organizatorių signalo...</p>
-      <div class="player-badge">
-        👤 <span id="t-welcome">Sveiki,</span> <strong id="waiting-nickname">—</strong>
+      <div class="pulse-ring">
+        <span class="compass-emoji">🧭</span>
       </div>
-      <div style="margin-top:32px;color:var(--text-muted);font-size:13px;animation:blink 2s ease-in-out infinite;" id="t-wait-blink">
+ 
+      <h2>Greitai prasidės!</h2>
+      <p>Laukite organizatorių signalo...</p>
+ 
+      <div class="player-badge">
+        👤 Sveiki, <strong id="waiting-nickname">—</strong>
+      </div>
+ 
+      <!-- Group members panel (hidden for solo) -->
+      <div id="group-members-panel" class="group-members-panel hidden">
+        <div class="group-members-title">
+          👥 Grupė: <span id="waiting-group-name">—</span>
+        </div>
+        <div class="group-members-info">Reikia 2–4 narių. Pasidalinkite grupės pavadinimu!</div>
+        <ul id="group-members-list" class="group-members-list"></ul>
+      </div>
+ 
+      <div style="margin-top:24px; color: var(--text-muted); font-size:13px; animation: blink 2s ease-in-out infinite;">
         ⏳ Laukiama starto signalo...
       </div>
     </div>
-
+ 
     <p class="footer">Geolympics · Klaipėda 2026</p>
   </div>
-
-  <!-- FIREBASE -->
+ 
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="firebase-config.js"></script>
-
+ 
   <script>
   (function () {
     'use strict';
-
-    // ════════════════════════════════════════
-    //  TRANSLATIONS
-    // ════════════════════════════════════════
-    const TR = {
-      lt: {
-        tagline:      'Geocaching varžybos · 2026',
-        cardTitle:    '⛳ Prisijungimas',
-        label:        'Jūsų geocaching slapyvardis',
-        loginBtn:     'Prisijungti →',
-        placeholder:  'pvz. Herkus220',
-        connecting:   'Jungiamasi...',
-        waitTitle:    'Greitai prasidės!',
-        waitSub:      'Laukite organizatorių signalo...',
-        welcome:      'Sveiki,',
-        waitBlink:    '⏳ Laukiama starto signalo...',
-        errEmpty:     'Įveskite slapyvardį!',
-        errShort:     'Slapyvardis per trumpas (min. 2 simboliai).',
-        errChars:     'Naudokite tik raides, skaičius ir _-',
-        errDupe:      'Šis slapyvardis jau naudojamas! Pasirinkite kitą.',
-        errConn:      'Klaida. Patikrinkite interneto ryšį.',
-        langBtn:      '🌐 EN',
-      },
-      en: {
-        tagline:      'Geocaching competition · 2026',
-        cardTitle:    '⛳ Login',
-        label:        'Your geocaching nickname',
-        loginBtn:     'Join →',
-        placeholder:  'e.g. Herkus220',
-        connecting:   'Connecting...',
-        waitTitle:    'Starting soon!',
-        waitSub:      'Waiting for the organiser\'s signal...',
-        welcome:      'Welcome,',
-        waitBlink:    '⏳ Waiting for start signal...',
-        errEmpty:     'Please enter a nickname!',
-        errShort:     'Nickname too short (min. 2 characters).',
-        errChars:     'Use only letters, numbers and _-',
-        errDupe:      'Nickname already taken! Choose another.',
-        errConn:      'Error. Check your internet connection.',
-        langBtn:      '🌐 LT',
-      }
-    };
-
-    let lang = localStorage.getItem('geolympics_lang') || 'lt';
-
-    function applyLang() {
-      const t = TR[lang];
-      setText('t-tagline',    t.tagline);
-      setText('t-card-title', t.cardTitle);
-      setText('t-label',      t.label);
-      setText('t-wait-title', t.waitTitle);
-      setText('t-wait-sub',   t.waitSub);
-      setText('t-welcome',    t.welcome);
-      setText('t-wait-blink', t.waitBlink);
-      setText('lang-btn',     t.langBtn);
-      setText('lang-btn-2',   t.langBtn);
-      const loginBtnEl = document.getElementById('login-btn');
-      if (loginBtnEl && !loginBtnEl.disabled) loginBtnEl.textContent = t.loginBtn;
-      const inp = document.getElementById('nickname-input');
-      if (inp) inp.placeholder = t.placeholder;
-    }
-
-    function setText(id, text) {
-      const el = document.getElementById(id);
-      if (el) el.textContent = text;
-    }
-
-    ['lang-btn', 'lang-btn-2'].forEach(id => {
-      const btn = document.getElementById(id);
-      if (btn) btn.addEventListener('click', () => {
-        lang = lang === 'lt' ? 'en' : 'lt';
-        localStorage.setItem('geolympics_lang', lang);
-        applyLang();
-      });
-    });
-
-    applyLang();
-
-    // ════════════════════════════════════════
-    //  ELEMENTS
-    // ════════════════════════════════════════
+ 
+    // ── Screens ──────────────────────────────────────────────
+    const modeScreen    = document.getElementById('mode-screen');
     const loginScreen   = document.getElementById('login-screen');
+    const groupScreen   = document.getElementById('group-screen');
     const waitingScreen = document.getElementById('waiting-screen');
-    const loginBtn      = document.getElementById('login-btn');
-    const nicknameInput = document.getElementById('nickname-input');
-    const loginError    = document.getElementById('login-error');
-    const waitingNick   = document.getElementById('waiting-nickname');
-
-    // ════════════════════════════════════════
-    //  RESET BUG FIX
-    //  After reset, player record is deleted from Firebase.
-    //  If we blindly redirect savedNick → game.html, we get
-    //  an infinite loop (game.html finds no record → back to
-    //  index.html → sees savedNick+started=true → game.html…)
-    //  Fix: always verify player record EXISTS before redirecting.
-    // ════════════════════════════════════════
-    const savedNick = localStorage.getItem('geolympics_nick');
-    if (savedNick) {
-      const savedKey = localStorage.getItem('geolympics_key') || safeKey(savedNick);
+ 
+    // Mode buttons
+    document.getElementById('mode-solo-btn').addEventListener('click', () => showScreen(loginScreen));
+    document.getElementById('mode-group-btn').addEventListener('click', () => showScreen(groupScreen));
+    document.getElementById('back-to-mode-solo').addEventListener('click', () => showScreen(modeScreen));
+    document.getElementById('back-to-mode-group').addEventListener('click', () => {
+      showScreen(modeScreen);
+      showGroupStep('choose');
+    });
+ 
+    // Group sub-steps
+    document.getElementById('create-group-btn').addEventListener('click', () => showGroupStep('create'));
+    document.getElementById('join-group-btn').addEventListener('click', () => showGroupStep('join'));
+ 
+    function showScreen(target) {
+      [modeScreen, loginScreen, groupScreen, waitingScreen].forEach(s => s.classList.add('hidden'));
+      target.classList.remove('hidden');
+    }
+ 
+    function showGroupStep(step) {
+      ['choose','create','join'].forEach(s => {
+        document.getElementById('group-step-' + s).classList.add('hidden');
+      });
+      document.getElementById('group-step-' + step).classList.remove('hidden');
+    }
+ 
+    // ── Resume saved session ──────────────────────────────────
+    const savedNick     = localStorage.getItem('geolympics_nick');
+    const savedKey      = localStorage.getItem('geolympics_key');
+    const savedMode     = localStorage.getItem('geolympics_mode');   // 'solo' | 'group'
+    const savedGroupKey = localStorage.getItem('geolympics_group');  // safeKey of group name
+ 
+    if (savedNick && savedKey) {
+      // FIX: Always verify player record still exists before redirecting.
+      // Without this, a reset (which deletes players) causes an infinite
+      // redirect loop: index→game→(no record)→index→game…
       Promise.all([
         db.ref('game/started').once('value'),
         db.ref('players/' + savedKey).once('value')
-      ]).then(([gameSnap, playerSnap]) => {
+      ]).then(function(results) {
+        var gameSnap   = results[0];
+        var playerSnap = results[1];
         if (!playerSnap.exists()) {
-          // Player was wiped by reset — clear and show login
           clearSession();
           return;
         }
         if (gameSnap.val() === true) {
           window.location.href = 'game.html';
         } else {
-          showWaiting(savedNick);
+          showWaiting(savedNick, savedMode, savedGroupKey);
         }
-      }).catch(clearSession);
+      }).catch(function() { clearSession(); });
     }
-
-    // ════════════════════════════════════════
-    //  LOGIN
-    // ════════════════════════════════════════
-    loginBtn.addEventListener('click', handleLogin);
-    nicknameInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
-
-    function handleLogin() {
+ 
+    // ── SOLO LOGIN ────────────────────────────────────────────
+    const nicknameInput = document.getElementById('nickname-input');
+    const loginBtn      = document.getElementById('login-btn');
+    const loginError    = document.getElementById('login-error');
+ 
+    loginBtn.addEventListener('click', handleSoloLogin);
+    nicknameInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleSoloLogin(); });
+ 
+    function handleSoloLogin() {
       const nick = nicknameInput.value.trim();
-      const t = TR[lang];
-
-      if (!nick)          { showError(t.errEmpty); return; }
-      if (nick.length < 2){ showError(t.errShort); return; }
-      if (!/^[a-zA-Z0-9ąčęėįšųūžĄČĘĖĮŠŲŪŽ _-]+$/.test(nick)) {
-        showError(t.errChars); return;
-      }
-
+      const err  = validateNick(nick);
+      if (err) { loginError.textContent = err; return; }
+ 
       loginBtn.disabled = true;
-      loginBtn.innerHTML = `<span class="spinner"></span>${t.connecting}`;
-      clearError();
-
+      loginBtn.innerHTML = '<span class="spinner"></span>Jungiamasi...';
+      loginError.textContent = '';
+ 
       const key = safeKey(nick);
       db.ref('players/' + key).once('value').then(snap => {
         if (snap.exists()) {
-          showError(t.errDupe);
-          loginBtn.disabled = false;
-          loginBtn.textContent = t.loginBtn;
-          return Promise.reject('duplicate');
+          loginError.textContent = 'Šis slapyvardis jau naudojamas!';
+          resetLoginBtn();
+          return;
         }
         return db.ref('players/' + key).set({
           nickname:        nick,
+          mode:            'solo',
+          groupKey:        null,
           currentWaypoint: 1,
           startTime:       null,
           finishTime:      null,
           joinedAt:        firebase.database.ServerValue.TIMESTAMP
         });
-      })
-      .then(() => {
-        localStorage.setItem('geolympics_nick', nick);
-        localStorage.setItem('geolympics_key',  key);
-        showWaiting(nick);
-      })
-      .catch(err => {
-        if (err === 'duplicate') return;
-        console.error(err);
-        showError(TR[lang].errConn);
-        loginBtn.disabled = false;
-        loginBtn.textContent = TR[lang].loginBtn;
+      }).then(v => {
+        if (v === undefined) return; // duplicate bail
+        localStorage.setItem('geolympics_nick',  nick);
+        localStorage.setItem('geolympics_key',   key);
+        localStorage.setItem('geolympics_mode',  'solo');
+        localStorage.removeItem('geolympics_group');
+        showWaiting(nick, 'solo', null);
+      }).catch(err => {
+        loginError.textContent = 'Klaida. Patikrinkite interneto ryšį.';
+        resetLoginBtn();
       });
     }
+ 
+    function resetLoginBtn() {
+      loginBtn.disabled = false;
+      loginBtn.innerHTML = 'Prisijungti →';
+    }
+ 
+    // ── GROUP CREATE ──────────────────────────────────────────
+    const createError = document.getElementById('create-error');
+    document.getElementById('do-create-btn').addEventListener('click', handleCreateGroup);
+ 
+    function handleCreateGroup() {
+      const groupName = document.getElementById('group-name-input').value.trim();
+      const nick      = document.getElementById('create-nick-input').value.trim();
+ 
+      const gErr = validateNick(groupName);
+      if (gErr) { createError.textContent = 'Grupės pavadinimas: ' + gErr; return; }
+      const nErr = validateNick(nick);
+      if (nErr) { createError.textContent = 'Slapyvardis: ' + nErr; return; }
+ 
+      const gKey = safeKey(groupName);
+      const pKey = safeKey(nick);
+      createError.textContent = '';
+ 
+      db.ref('groups/' + gKey).once('value').then(snap => {
+        if (snap.exists()) {
+          createError.textContent = 'Grupė su šiuo pavadinimu jau egzistuoja!';
+          return;
+        }
+ 
+        const updates = {};
+        updates['groups/' + gKey] = {
+          name:      groupName,
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          members:   { [pKey]: { nickname: nick, joinedAt: firebase.database.ServerValue.TIMESTAMP } }
+        };
+        updates['players/' + pKey] = {
+          nickname:        nick,
+          mode:            'group',
+          groupKey:        gKey,
+          groupName:       groupName,
+          currentWaypoint: 1,
+          startTime:       null,
+          finishTime:      null,
+          joinedAt:        firebase.database.ServerValue.TIMESTAMP
+        };
+ 
+        return db.ref().update(updates);
+      }).then(v => {
+        if (v === undefined) return;
+        localStorage.setItem('geolympics_nick',  nick);
+        localStorage.setItem('geolympics_key',   safeKey(nick));
+        localStorage.setItem('geolympics_mode',  'group');
+        localStorage.setItem('geolympics_group', safeKey(groupName));
+        localStorage.setItem('geolympics_groupName', groupName);
+        showWaiting(nick, 'group', safeKey(groupName));
+      }).catch(() => {
+        createError.textContent = 'Klaida. Patikrinkite interneto ryšį.';
+      });
+    }
+ 
+    // ── GROUP JOIN ────────────────────────────────────────────
+    const joinError = document.getElementById('join-error');
+    document.getElementById('do-join-btn').addEventListener('click', handleJoinGroup);
+ 
+    function handleJoinGroup() {
+      const groupName = document.getElementById('join-group-name-input').value.trim();
+      const nick      = document.getElementById('join-nick-input').value.trim();
+ 
+      const gErr = validateNick(groupName);
+      if (gErr) { joinError.textContent = 'Grupės pavadinimas: ' + gErr; return; }
+      const nErr = validateNick(nick);
+      if (nErr) { joinError.textContent = 'Slapyvardis: ' + nErr; return; }
+ 
+      const gKey = safeKey(groupName);
+      const pKey = safeKey(nick);
+      joinError.textContent = '';
+ 
+      db.ref('groups/' + gKey).once('value').then(snap => {
+        if (!snap.exists()) {
+          joinError.textContent = 'Grupė "' + groupName + '" nerasta. Patikrinkite pavadinimą.';
+          return;
+        }
+        const members = snap.val().members || {};
+        if (Object.keys(members).length >= 4) {
+          joinError.textContent = 'Grupė pilna! (max. 4 nariai)';
+          return;
+        }
+        if (members[pKey]) {
+          joinError.textContent = 'Šis slapyvardis grupėje jau naudojamas!';
+          return;
+        }
+ 
+        const updates = {};
+        updates['groups/' + gKey + '/members/' + pKey] = {
+          nickname: nick,
+          joinedAt: firebase.database.ServerValue.TIMESTAMP
+        };
+        updates['players/' + pKey] = {
+          nickname:        nick,
+          mode:            'group',
+          groupKey:        gKey,
+          groupName:       snap.val().name,
+          currentWaypoint: 1,
+          startTime:       null,
+          finishTime:      null,
+          joinedAt:        firebase.database.ServerValue.TIMESTAMP
+        };
+        return db.ref().update(updates).then(() => snap.val().name);
+      }).then(resolvedGroupName => {
+        if (!resolvedGroupName) return;
+        localStorage.setItem('geolympics_nick',  nick);
+        localStorage.setItem('geolympics_key',   pKey);
+        localStorage.setItem('geolympics_mode',  'group');
+        localStorage.setItem('geolympics_group', gKey);
+        localStorage.setItem('geolympics_groupName', resolvedGroupName);
+        showWaiting(nick, 'group', gKey);
+      }).catch(() => {
+        joinError.textContent = 'Klaida. Patikrinkite interneto ryšį.';
+      });
+    }
+ 
+    // ── WAITING ROOM ──────────────────────────────────────────
+    // FIX: store ref so we can detach before re-attaching — prevents
+    // duplicate listeners if showWaiting is called more than once.
+    let _gameStartedCb = null;
 
-    // ════════════════════════════════════════
-    //  WAITING SCREEN
-    // ════════════════════════════════════════
-    let gameListenerRef = null;
+    function showWaiting(nick, mode, groupKey) {
+      showScreen(waitingScreen);
+      document.getElementById('waiting-nickname').textContent = nick;
 
-    function showWaiting(nick) {
-      loginScreen.classList.add('hidden');
-      waitingScreen.classList.remove('hidden');
-      waitingNick.textContent = nick;
+      const groupPanel = document.getElementById('group-members-panel');
 
-      // Always detach before re-attaching to avoid duplicate listeners
-      if (gameListenerRef) {
-        db.ref('game/started').off('value', gameListenerRef);
+      if (mode === 'group' && groupKey) {
+        groupPanel.classList.remove('hidden');
+        const savedGroupName = localStorage.getItem('geolympics_groupName') || groupKey;
+        document.getElementById('waiting-group-name').textContent = savedGroupName;
+
+        // Live-listen to group members
+        db.ref('groups/' + groupKey + '/members').on('value', snap => {
+          const members = snap.val() || {};
+          const list    = document.getElementById('group-members-list');
+          list.innerHTML = Object.values(members).map(m =>
+            `<li class="group-member-item">👤 ${escHtml(m.nickname)}</li>`
+          ).join('');
+        });
+      } else {
+        groupPanel.classList.add('hidden');
       }
 
-      gameListenerRef = function(snap) {
+      // Detach previous listener before attaching new one
+      if (_gameStartedCb) db.ref('game/started').off('value', _gameStartedCb);
+      _gameStartedCb = db.ref('game/started').on('value', snap => {
         if (snap.val() === true) {
+          // FIX: verify player still exists before going to game.html
+          // (guards against redirect loop when reset happens mid-wait)
           const key = localStorage.getItem('geolympics_key');
-          // Verify record still exists (guard against mid-session reset)
           db.ref('players/' + key).once('value').then(pSnap => {
             if (pSnap.exists()) {
               window.location.href = 'game.html';
@@ -280,24 +424,36 @@
             }
           });
         }
-      };
-
-      db.ref('game/started').on('value', gameListenerRef);
+      });
     }
 
-    // ════════════════════════════════════════
-    //  HELPERS
-    // ════════════════════════════════════════
-    function showError(msg) { loginError.textContent = msg; }
-    function clearError()   { loginError.textContent = ''; }
-    function safeKey(n)     { return n.replace(/[.#$\[\]/]/g, '_'); }
+    // ── Helpers ───────────────────────────────────────────────
     function clearSession() {
       localStorage.removeItem('geolympics_nick');
       localStorage.removeItem('geolympics_key');
+      localStorage.removeItem('geolympics_mode');
+      localStorage.removeItem('geolympics_group');
+      localStorage.removeItem('geolympics_groupName');
     }
 
+    function validateNick(nick) {
+      if (!nick) return 'Laukas negali būti tuščias!';
+      if (nick.length < 2) return 'Per trumpas (min. 2 simboliai).';
+      if (!/^[a-zA-Z0-9ąčęėįšųūžĄČĘĖĮŠŲŪŽ _-]+$/.test(nick))
+        return 'Naudokite tik raides, skaičius ir _-';
+      return null;
+    }
+
+    function safeKey(s) {
+      return s.replace(/[.#$\[\]/]/g, '_');
+    }
+
+    function escHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+ 
   })();
   </script>
-
+ 
 </body>
 </html>
