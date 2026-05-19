@@ -49,12 +49,35 @@
 
       <button class="btn btn-primary" id="start-btn">▶ PRADĖTI ŽAIDIMĄ</button>
       <button class="btn btn-danger"  id="end-btn">⏹ BAIGTI ŽAIDIMĄ</button>
-      <button class="btn btn-amber"   id="reset-btn">🔄 RESET (ištrinti viską)</button>
+
+      <!-- Congratulate button — shown only after game ended and there are finishers -->
+      <button class="btn btn-amber hidden" id="congrats-btn">🎉 SVEIKINTI VISUS NUGALĖTOJUS</button>
+
+      <button class="btn btn-outline" id="reset-btn" style="margin-top:16px;">🔄 RESET (ištrinti viską)</button>
+    </div>
+
+    <!-- ── Žaidimo trukmė ── -->
+    <div class="card" style="width:100%;max-width:480px;margin-top:16px;">
+      <div class="card-title">⏱ Žaidimo trukmė</div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">
+        Nustatykite, kiek minučių žaidėjai turės rasti visas stoteles (numatyta: 60 min).
+      </p>
+      <div style="display:flex;gap:10px;align-items:flex-end;">
+        <div style="flex:1;">
+          <label for="duration-input">Trukmė (minutėmis)</label>
+          <input type="number" id="duration-input" min="5" max="300" value="60"
+            placeholder="60" style="margin-bottom:0;" />
+        </div>
+        <button class="btn btn-outline btn-sm" id="save-duration-btn" style="margin-bottom:0;white-space:nowrap;">
+          💾 Išsaugoti
+        </button>
+      </div>
+      <p class="success-msg hidden" id="save-duration-msg">✅ Trukmė išsaugota!</p>
     </div>
 
     <!-- ── Stotelių koordinatės ── -->
     <div class="card" style="width:100%;max-width:480px;margin-top:16px;">
-      <div class="card-title">📍 Waypoint koordinatės</div>
+      <div class="card-title">📍 Stotelių koordinatės</div>
       <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
         Įveskite koordinates ir spauskite "Išsaugoti į Firebase".
       </p>
@@ -76,12 +99,19 @@
       <div id="qr-values-list"></div>
     </div>
 
-    <!-- ── Žaidėjų sąrašas ── -->
+    <!-- ── Žaidėjų sąrašas (Vieniši & Grupės) ── -->
     <div class="card" style="width:100%;max-width:480px;margin-top:16px;">
-      <div class="card-title">👥 Žaidėjai (<span id="player-count">0</span>)</div>
-      <ul class="admin-players" id="player-list">
-        <li class="empty-state"><span class="empty-icon">👤</span>Nėra žaidėjų</li>
+      <div class="card-title">👤 Solo (<span id="solo-count">0</span>)</div>
+      <ul class="admin-players" id="solo-player-list">
+        <li class="empty-state"><span class="empty-icon">👤</span>Nėra solo žaidėjų</li>
       </ul>
+    </div>
+
+    <div class="card" style="width:100%;max-width:480px;margin-top:16px;">
+      <div class="card-title">👥 Grupės (<span id="group-count">0</span>)</div>
+      <div id="groups-list">
+        <div class="empty-state"><span class="empty-icon">👥</span>Nėra grupių</div>
+      </div>
     </div>
 
     <!-- ── Lyderių lentelė (admin) ── -->
@@ -92,7 +122,7 @@
       </div>
     </div>
 
-    <p class="footer">Geolympics Admin · Klaipėda 2025</p>
+    <p class="footer">Geolympics Admin · Klaipėda 2026</p>
   </div>
 
   <!-- Toast -->
@@ -116,7 +146,7 @@
     // ║  ⚠️  SLAPTAŽODIS — PAKEISKITE ŠI!        ║
     // ║  Change this password before deploying!   ║
     // ╚═══════════════════════════════════════════╝
-    const ADMIN_PASSWORD = 'Deimax20122';
+    const ADMIN_PASSWORD  = 'Deimax20122';
     const TOTAL_WAYPOINTS = 10;
 
     // ── Elementai ─────────────────────────────────────────────
@@ -129,15 +159,23 @@
     const startBtn      = document.getElementById('start-btn');
     const endBtn        = document.getElementById('end-btn');
     const resetBtn      = document.getElementById('reset-btn');
+    const congratsBtn   = document.getElementById('congrats-btn');
 
     const statusPill    = document.getElementById('game-status-pill');
     const statusText    = document.getElementById('game-status-text');
-    const playerCount   = document.getElementById('player-count');
-    const playerList    = document.getElementById('player-list');
+
+    const soloCount     = document.getElementById('solo-count');
+    const soloList      = document.getElementById('solo-player-list');
+    const groupCount    = document.getElementById('group-count');
+    const groupsList    = document.getElementById('groups-list');
 
     const saveWpBtn     = document.getElementById('save-waypoints-btn');
     const saveWpMsg     = document.getElementById('save-wp-msg');
     const toastEl       = document.getElementById('toast');
+
+    const durationInput    = document.getElementById('duration-input');
+    const saveDurationBtn  = document.getElementById('save-duration-btn');
+    const saveDurationMsg  = document.getElementById('save-duration-msg');
 
     // Išsaugota sesija
     if (sessionStorage.getItem('geolympics_admin') === 'true') {
@@ -172,45 +210,74 @@
     function initAdmin() {
       buildWaypointForm();
       buildQRValuesList();
+      loadDurationSetting();
       listenGameStatus();
       listenPlayers();
+      listenGroups();
     }
+
+    // ── Žaidimo trukmė ────────────────────────────────────────
+    function loadDurationSetting() {
+      db.ref('game/durationMs').once('value').then(snap => {
+        if (snap.val()) {
+          durationInput.value = Math.round(snap.val() / 60000);
+        }
+      });
+    }
+
+    saveDurationBtn.addEventListener('click', () => {
+      const mins = parseInt(durationInput.value, 10);
+      if (isNaN(mins) || mins < 5 || mins > 300) {
+        showToast('❌ Įveskite minutėmis (5–300)!', 'error');
+        return;
+      }
+      db.ref('game/durationMs').set(mins * 60000).then(() => {
+        saveDurationMsg.classList.remove('hidden');
+        showToast('⏱ Trukmė išsaugota: ' + mins + ' min', 'success');
+        setTimeout(() => saveDurationMsg.classList.add('hidden'), 3000);
+      });
+    });
 
     // ── Žaidimo būsena ────────────────────────────────────────
     function listenGameStatus() {
       db.ref('game').on('value', snap => {
-        const data = snap.val() || {};
+        const data    = snap.val() || {};
         const started = data.started === true;
-        const ended   = data.ended === true;
+        const ended   = data.ended   === true;
 
         if (ended) {
-          statusPill.className = 'status-pill ended';
-          statusText.textContent = 'Žaidimas baigtas';
-          startBtn.disabled = false;   // allow restarting
-          endBtn.disabled   = true;
+          statusPill.className      = 'status-pill ended';
+          statusText.textContent    = 'Žaidimas baigtas';
+          // FIX: allow starting a new game after ending (was incorrectly disabled)
+          startBtn.disabled         = false;
+          endBtn.disabled           = true;
+          congratsBtn.classList.remove('hidden');
         } else if (started) {
-          statusPill.className = 'status-pill active';
-          statusText.textContent = 'Žaidimas vyksta';
-          startBtn.disabled = true;
-          endBtn.disabled   = false;
+          statusPill.className      = 'status-pill active';
+          statusText.textContent    = 'Žaidimas vyksta';
+          startBtn.disabled         = true;
+          endBtn.disabled           = false;
+          congratsBtn.classList.add('hidden');
         } else {
-          statusPill.className = 'status-pill';
-          statusText.textContent = 'Žaidimas nepradėtas';
-          startBtn.disabled = false;
-          endBtn.disabled   = true;
+          statusPill.className      = 'status-pill';
+          statusText.textContent    = 'Žaidimas nepradėtas';
+          startBtn.disabled         = false;
+          endBtn.disabled           = true;
+          congratsBtn.classList.add('hidden');
         }
       });
     }
 
     // ── Mygtukai ──────────────────────────────────────────────
     startBtn.addEventListener('click', () => {
-      if (!confirm('Pradėti žaidimą? Visi žaidėjai bus automatiškai perkelti į žaidimo ekraną.')) return;
+      if (!confirm('Pradėti žaidimą? Visi žaidėjai bus perkelti į žaidimo ekraną.')) return;
 
       const now = Date.now();
       db.ref('game').update({
         started:   true,
         ended:     false,
-        startTime: now
+        startTime: now,
+        congratulate: false
       }).then(() => {
         showToast('▶ Žaidimas pradėtas!', 'success');
       });
@@ -227,25 +294,41 @@
       });
     });
 
+    congratsBtn.addEventListener('click', () => {
+      if (!confirm('Sveikinti visus žaidėjus su rezultatais? Jų ekrane pasirodys sveikinimas.')) return;
+
+      db.ref('game/congratulate').set(true).then(() => {
+        showToast('🎉 Sveikinimas išsiųstas visiems žaidėjams!', 'success');
+        congratsBtn.disabled = true;
+        congratsBtn.textContent = '✅ Sveikinimas išsiųstas!';
+      });
+    });
+
     resetBtn.addEventListener('click', () => {
-      if (!confirm('⚠️ RESET: Ištrinti VISUS žaidėjus ir pradėti iš naujo?')) return;
+      if (!confirm('⚠️ RESET: Ištrinti VISUS žaidėjus ir grupes ir pradėti iš naujo?')) return;
       if (!confirm('Ar tikrai? Šis veiksmas NEGRĮŽTAMAS!')) return;
 
-      // Must use remove() to fully delete the players node,
-      // then set game back to a clean state
-      db.ref('players').remove()
-        .then(() => db.ref('game').set({
-          started:   false,
-          ended:     false,
-          startTime: null
-        }))
-        .then(() => {
-          showToast('🔄 Žaidimas nustatytas iš naujo!', 'success');
-        })
-        .catch(err => {
-          console.error(err);
-          showToast('❌ Reset nepavyko: ' + err.message, 'error');
+      // FIX: use remove() for players and groups nodes.
+      // update({players: null}) can silently fail to delete root-level nodes
+      // in some Firebase SDK versions. remove() is the reliable way.
+      Promise.all([
+        db.ref('players').remove(),
+        db.ref('groups').remove()
+      ]).then(() => {
+        return db.ref('game').set({
+          started:      false,
+          ended:        false,
+          startTime:    null,
+          congratulate: false
         });
+      }).then(() => {
+        showToast('🔄 Žaidimas nustatytas iš naujo!', 'success');
+        congratsBtn.classList.add('hidden');
+        congratsBtn.disabled = false;
+        congratsBtn.textContent = '🎉 SVEIKINTI VISUS NUGALĖTOJUS';
+      }).catch(err => {
+        showToast('❌ Reset nepavyko: ' + err.message, 'error');
+      });
     });
 
     // ── Stotelių forma ────────────────────────────────────────
@@ -253,12 +336,11 @@
       const form = document.getElementById('waypoints-form');
       form.innerHTML = '';
 
-      // Pirma patikrinti ar Firebase turi koordinates
       db.ref('game/waypoints').once('value').then(snap => {
         const saved = snap.val() || {};
 
         for (let i = 1; i <= TOTAL_WAYPOINTS; i++) {
-          const wp = saved[i] || DEFAULT_WAYPOINTS.find(d => d.id === i) || {};
+          const wp  = saved[i] || DEFAULT_WAYPOINTS.find(d => d.id === i) || {};
           const row = document.createElement('div');
           row.style.cssText = 'margin-bottom:12px;border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--surface2)';
           row.innerHTML = `
@@ -290,7 +372,7 @@
 
     saveWpBtn.addEventListener('click', () => {
       const updates = {};
-      let hasError = false;
+      let hasError  = false;
 
       for (let i = 1; i <= TOTAL_WAYPOINTS; i++) {
         const lat  = parseFloat(document.getElementById('wp-lat-' + i)?.value);
@@ -302,7 +384,6 @@
           hasError = true;
           break;
         }
-
         updates['game/waypoints/' + i] = { lat, lng, hint };
       }
 
@@ -318,7 +399,26 @@
     // ── QR reikšmių sąrašas ───────────────────────────────────
     function buildQRValuesList() {
       const container = document.getElementById('qr-values-list');
+      const specials  = [
+        { label: 'PRADŽIA', code: 'GEOLYMPICS_START' },
+        { label: 'FINIŠAS', code: 'GEOLYMPICS_FINISH' }
+      ];
       let html = '';
+
+      specials.forEach(({ label, code }) => {
+        html += `
+          <div style="display:flex;align-items:center;justify-content:space-between;
+               padding:8px 12px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.3);
+               border-radius:8px;margin-bottom:6px;gap:8px;">
+            <div>
+              <div style="font-size:11px;color:var(--amber);letter-spacing:0.1em">${label}</div>
+              <code style="font-size:14px;color:var(--amber);word-break:break-all;">${code}</code>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="copyCode('${code}', this)">📋</button>
+          </div>
+        `;
+      });
+
       for (let i = 1; i <= TOTAL_WAYPOINTS; i++) {
         const code = 'GEOLYMPICS_WP_' + i;
         html += `
@@ -343,43 +443,108 @@
       });
     };
 
-    // ── Žaidėjų sąrašas ───────────────────────────────────────
+    // ── Žaidėjų & Grupių sąrašai ──────────────────────────────
     let gameStartTime = null;
+    let gameDurationMs = 60 * 60 * 1000;
     db.ref('game/startTime').on('value', s => { gameStartTime = s.val(); });
+    db.ref('game/durationMs').on('value', s => { if (s.val()) gameDurationMs = s.val(); });
 
     function listenPlayers() {
       db.ref('players').on('value', snap => {
-        const data = snap.val();
-        renderPlayerList(data);
+        const data = snap.val() || {};
+        renderSoloList(data);
         renderAdminLeaderboard(data);
       });
     }
 
-    function renderPlayerList(data) {
-      if (!data) {
-        playerCount.textContent = '0';
-        playerList.innerHTML = '<li class="empty-state"><span class="empty-icon">👤</span>Nėra žaidėjų</li>';
+    function listenGroups() {
+      db.ref('groups').on('value', snap => {
+        const data = snap.val() || {};
+        renderGroupsList(data);
+      });
+    }
+
+    // ── Solo players ──────────────────────────────────────────
+    function renderSoloList(data) {
+      const players = Object.values(data).filter(p => p.mode === 'solo' || !p.mode);
+      soloCount.textContent = players.length;
+
+      if (players.length === 0) {
+        soloList.innerHTML = '<li class="empty-state"><span class="empty-icon">👤</span>Nėra vienišių žaidėjų</li>';
         return;
       }
 
-      const players = Object.values(data);
-      playerCount.textContent = players.length;
-
-      playerList.innerHTML = players.map(p => {
+      soloList.innerHTML = players.map(p => {
         const finished = !!p.finishTime;
-        const wpLabel  = finished
-          ? `<span class="p-done">✅ Finišas · ${formatElapsed(p.finishTime - (gameStartTime || 0))}</span>`
-          : `<span class="p-wp">Stotis ${p.currentWaypoint || 1} / 10</span>`;
-
+        const timeUp   = !!p.timeUp;
+        let statusLabel;
+        if (finished) {
+          const left = p.timeLeft || 0;
+          statusLabel = `<span class="p-done">🏁 Finišas · Liko: ${formatMs(left)}</span>`;
+        } else if (timeUp) {
+          statusLabel = `<span style="color:var(--amber);font-size:12px;">⏰ Laikas baigėsi · WP ${p.currentWaypoint||1}/10</span>`;
+        } else {
+          const started = !!p.startTime;
+          statusLabel = started
+            ? `<span class="p-wp">▶ WP ${p.currentWaypoint || 1}/10</span>`
+            : `<span class="p-wp" style="color:var(--text-muted);">⏳ Laukia</span>`;
+        }
         return `
           <li class="admin-player-item">
-            <span class="p-name">${escHtml(p.nickname || '—')}</span>
-            ${wpLabel}
+            <span class="p-name">🧍 ${escHtml(p.nickname || '—')}</span>
+            ${statusLabel}
           </li>
         `;
       }).join('');
     }
 
+    // ── Groups list ───────────────────────────────────────────
+    function renderGroupsList(data) {
+      const groups = Object.values(data);
+      groupCount.textContent = groups.length;
+
+      if (groups.length === 0) {
+        groupsList.innerHTML = '<div class="empty-state"><span class="empty-icon">👥</span>Nėra grupių</div>';
+        return;
+      }
+
+      groupsList.innerHTML = groups.map(g => {
+        const members  = Object.values(g.members || {});
+        const memberCount = members.length;
+        const allScanned  = g.startTime != null;
+        const finished    = !!g.finishTime;
+
+        // Determine group progress from members
+        const maxWp = members.reduce((max, m) => Math.max(max, m.currentWaypoint || 1), 1);
+
+        let statusBadge;
+        if (finished) {
+          statusBadge = `<span style="color:var(--accent);font-size:12px;">🏁 Finišas</span>`;
+        } else if (allScanned) {
+          statusBadge = `<span style="color:var(--text-mid);font-size:12px;">▶ WP ${maxWp}/10</span>`;
+        } else {
+          statusBadge = `<span style="color:var(--text-muted);font-size:12px;">⏳ Laukia pradžios</span>`;
+        }
+
+        const memberItems = members.map(m => {
+          const scanned = !!m.startScanned;
+          return `<li class="admin-group-member">${scanned ? '✅' : '⏳'} ${escHtml(m.nickname)}</li>`;
+        }).join('');
+
+        return `
+          <div class="admin-group-card">
+            <div class="admin-group-header">
+              <span class="admin-group-name">👥 ${escHtml(g.name || '—')}</span>
+              <span class="admin-group-meta">${memberCount}/4 nariai</span>
+              ${statusBadge}
+            </div>
+            <ul class="admin-group-members">${memberItems}</ul>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ── Admin leaderboard ─────────────────────────────────────
     function renderAdminLeaderboard(data) {
       const container = document.getElementById('admin-leaderboard');
       if (!data) {
@@ -387,54 +552,96 @@
         return;
       }
 
-      const players = Object.values(data);
-      const finished = players
-        .filter(p => p.finishTime)
-        .sort((a, b) => (a.finishTime - (gameStartTime||0)) - (b.finishTime - (gameStartTime||0)));
+      // Build leaderboard entries — group by groupKey for group players
+      const players   = Object.values(data);
+      const processed = {};
 
-      const playing = players
-        .filter(p => !p.finishTime)
-        .sort((a, b) => (b.currentWaypoint || 1) - (a.currentWaypoint || 1));
+      players.forEach(p => {
+        if (p.mode === 'group' && p.groupKey) {
+          // Only process group once
+          if (!processed['group_' + p.groupKey]) {
+            processed['group_' + p.groupKey] = {
+              isGroup:    true,
+              name:       p.groupName || p.groupKey,
+              finishTime: p.finishTime || null,
+              timeLeft:   p.timeLeft   || null,
+              timeUp:     p.timeUp     || false,
+              currentWaypoint: p.currentWaypoint || 1
+            };
+          }
+          // Update with best (earliest finish)
+          const entry = processed['group_' + p.groupKey];
+          if (p.finishTime && (!entry.finishTime || p.finishTime < entry.finishTime)) {
+            entry.finishTime = p.finishTime;
+            entry.timeLeft   = p.timeLeft;
+          }
+          if ((p.currentWaypoint || 1) > entry.currentWaypoint) {
+            entry.currentWaypoint = p.currentWaypoint || 1;
+          }
+        } else {
+          processed['solo_' + safeKey(p.nickname || '')] = {
+            isGroup:    false,
+            name:       p.nickname || '—',
+            finishTime: p.finishTime || null,
+            timeLeft:   p.timeLeft  || null,
+            timeUp:     p.timeUp    || false,
+            currentWaypoint: p.currentWaypoint || 1
+          };
+        }
+      });
 
-      const all = [...finished, ...playing];
+      const all = Object.values(processed);
       if (all.length === 0) {
         container.innerHTML = '<div class="empty-state">Nėra žaidėjų</div>';
         return;
       }
 
+      // Sort: finished first (by time left desc = most remaining = best), then by wp desc
+      const finished = all.filter(e => e.finishTime).sort((a, b) => (b.timeLeft || 0) - (a.timeLeft || 0));
+      const playing  = all.filter(e => !e.finishTime).sort((a, b) => b.currentWaypoint - a.currentWaypoint);
+      const sorted   = [...finished, ...playing];
+
       const medals = ['🥇','🥈','🥉'];
       const mClass  = ['gold','silver','bronze'];
 
-      container.innerHTML = all.map((p, i) => {
-        const fin    = !!p.finishTime;
+      container.innerHTML = sorted.map((e, i) => {
+        const fin    = !!e.finishTime;
         const rank   = i < 3
           ? `<span class="lb-rank ${mClass[i]}">${medals[i]}</span>`
-          : `<span class="lb-rank other">${i+1}</span>`;
-        const status = fin
-          ? `<span class="lb-status"><span class="time">${formatElapsed(p.finishTime-(gameStartTime||0))}</span></span>`
-          : `<span class="lb-status"><span class="wp">WP ${p.currentWaypoint||1}/10</span></span>`;
+          : `<span class="lb-rank other">${i + 1}</span>`;
+
+        let statusHtml;
+        if (fin) {
+          statusHtml = `<span class="lb-status"><span class="time">Liko: ${formatMs(e.timeLeft || 0)}</span></span>`;
+        } else if (e.timeUp) {
+          statusHtml = `<span class="lb-status"><span style="color:var(--amber)">⏰ WP ${e.currentWaypoint}/10</span></span>`;
+        } else {
+          statusHtml = `<span class="lb-status"><span class="wp">WP ${e.currentWaypoint}/10</span></span>`;
+        }
+
+        const icon = e.isGroup ? '👥' : '🧍';
         return `
           <div class="lb-entry">
             ${rank}
-            <span class="lb-name">${escHtml(p.nickname||'—')}</span>
-            ${status}
+            <span class="lb-name">${icon} ${escHtml(e.name)}</span>
+            ${statusHtml}
           </div>
         `;
       }).join('');
     }
 
     // ── Pagalbinės funkcijos ──────────────────────────────────
-    function formatElapsed(ms) {
-      if (!ms || ms <= 0) return '—';
-      const s = Math.floor(ms / 1000);
-      const h = Math.floor(s / 3600);
-      const m = Math.floor((s % 3600) / 60);
+    function formatMs(ms) {
+      if (!ms || ms <= 0) return '0m 00s';
+      const s   = Math.floor(ms / 1000);
+      const m   = Math.floor(s / 60);
       const sec = s % 60;
-      if (h > 0) return `${h}h ${pad(m)}m ${pad(sec)}s`;
-      return `${pad(m)}m ${pad(sec)}s`;
+      return `${m}m ${pad(sec)}s`;
     }
 
     function pad(n) { return String(n).padStart(2, '0'); }
+
+    function safeKey(s) { return s.replace(/[.#$[\]/]/g, '_'); }
 
     function escHtml(str) {
       return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -444,7 +651,7 @@
     function showToast(msg, type = '') {
       clearTimeout(toastTimer);
       toastEl.textContent = msg;
-      toastEl.className = 'toast ' + type + ' show';
+      toastEl.className   = 'toast ' + type + ' show';
       toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3500);
     }
 
