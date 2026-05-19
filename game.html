@@ -10,19 +10,72 @@
 <body>
 
   <!-- ══════════════════════════════════════════
-       ŽAIDIMO EKRANAS (rodomas kai žaidimas vyksta)
+       START QR SCREEN — scan GEOLYMPICS_START
+  ══════════════════════════════════════════ -->
+  <div id="start-scan-screen" class="page hidden">
+    <div class="waiting-content" style="padding-top:40px;">
+      <div class="pulse-ring" style="margin-bottom:24px;">
+        <span class="compass-emoji">📷</span>
+      </div>
+      <h2 style="font-size:clamp(28px,8vw,48px);margin-bottom:8px;">Nuskenuokite START</h2>
+      <p style="margin-bottom:32px;">Raskite pradinį QR kodą ir nuskenuokite jį.</p>
+
+      <div class="scanner-wrap" style="opacity:1;animation:none;">
+        <div id="start-qr-reader"></div>
+        <div id="start-scan-msg" class="scan-result-msg hidden"></div>
+        <button class="btn btn-primary" id="start-scan-btn">📷 Atidaryti kamerą</button>
+        <button class="btn btn-outline hidden" id="start-rescan-btn" style="margin-top:10px;">🔄 Bandyti dar kartą</button>
+      </div>
+
+      <!-- Group: show who has already scanned -->
+      <div id="start-group-status" class="group-members-panel hidden" style="margin-top:24px;">
+        <div class="group-members-title">👥 Grupė: <span id="start-group-name">—</span></div>
+        <div class="group-members-info">Visi nariai turi nuskenuoti pradžios QR kodą.</div>
+        <ul id="start-members-scanned" class="group-members-list"></ul>
+      </div>
+    </div>
+    <p class="footer">Geolympics · Klaipėda 2026</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       COUNTDOWN SCREEN (3 min wait + 3-2-1)
+  ══════════════════════════════════════════ -->
+  <div id="countdown-screen" class="page hidden">
+    <div class="waiting-content" style="padding-top:40px;">
+      <div id="cd-label" class="cd-label">Laukiama starto...</div>
+      <div id="cd-number" class="cd-number">—</div>
+      <p id="cd-sub" class="cd-sub">Kiti ieškotojai vis dar jungiasi</p>
+
+      <!-- Group members status during countdown -->
+      <div id="cd-group-panel" class="group-members-panel hidden" style="margin-top:24px;">
+        <div class="group-members-title">👥 Grupė: <span id="cd-group-name">—</span></div>
+        <ul id="cd-members-list" class="group-members-list"></ul>
+      </div>
+    </div>
+    <p class="footer">Geolympics · Klaipėda 2026</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       MAIN GAME SCREEN
   ══════════════════════════════════════════ -->
   <div id="game-screen" class="page hidden">
 
-    <!-- Antraštė -->
+    <!-- Header -->
     <div class="game-header" style="width:100%;max-width:420px;">
       <span class="game-title">🧭 GEOLYMPICS</span>
       <div class="player-tag">
-        Žaidėjas<strong id="hdr-nickname">—</strong>
+        <span id="hdr-mode-badge" class="mode-badge-solo">🧍</span>
+        <strong id="hdr-nickname">—</strong>
       </div>
     </div>
 
-    <!-- Progreso juosta -->
+    <!-- 1-hour countdown timer -->
+    <div class="timer-bar" id="timer-bar">
+      <span class="timer-label">⏱ Liko laiko:</span>
+      <span class="timer-value" id="timer-display">60:00</span>
+    </div>
+
+    <!-- Progress bar -->
     <div class="progress-bar-wrap">
       <div class="progress-label">
         <span>Pažanga</span>
@@ -33,223 +86,483 @@
       </div>
     </div>
 
-    <!-- Koordinačių kortelė -->
+    <!-- Waypoint coords card -->
     <div class="coords-card">
-      <p class="waypoint-label">Einamasis waypoint</p>
+      <p class="waypoint-label">Einamoji stotis</p>
       <div class="waypoint-num" id="wp-number">1</div>
       <p class="coords-label">📍 Koordinatės</p>
       <div class="coords-value" id="coords-display">—</div>
       <p class="coords-hint" id="wp-hint"></p>
     </div>
 
-    <!-- Tabs: Skeneris / Lyderiai -->
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="scanner">📷 Skeneris</button>
-      <button class="tab-btn"        data-tab="leaders">🏆 Lyderiai</button>
-    </div>
-
-    <!-- Tab: QR Skeneris -->
-    <div class="tab-panel active" id="tab-scanner">
-      <div class="scanner-wrap">
-        <div id="qr-reader"></div>
-        <div id="scan-msg" class="scan-result-msg hidden"></div>
-        <button class="btn btn-primary" id="scan-btn">📷 Nuskenuoti QR kodą</button>
-        <button class="btn btn-outline hidden" id="rescan-btn" style="margin-top:10px">🔄 Skenuoti iš naujo</button>
+    <!-- Group scan status (shown for group players) -->
+    <div id="group-scan-status" class="group-members-panel hidden" style="width:100%;max-width:420px;margin-bottom:12px;">
+      <div class="group-members-title">👥 Grupė skenavo:</div>
+      <ul id="group-scanned-list" class="group-members-list"></ul>
+      <div id="group-scan-hint" style="font-size:12px;color:var(--text-muted);margin-top:6px;text-align:center;">
+        Visi nariai turi nuskenuoti QR kodą.
       </div>
     </div>
 
-    <!-- Tab: Lyderių lentelė -->
-    <div class="tab-panel" id="tab-leaders">
-      <div class="card-title" style="color:var(--amber);font-family:var(--font-head);font-size:22px;letter-spacing:0.06em;margin-bottom:16px;">
-        🏆 Lyderių lentelė
-      </div>
-      <div id="leaderboard-list">
-        <div class="empty-state">
-          <span class="empty-icon">⏳</span>
-          Lyderių lentelė atnaujinama...
-        </div>
-      </div>
+    <!-- QR scanner -->
+    <div class="scanner-wrap" style="width:100%;max-width:420px;">
+      <div id="qr-reader"></div>
+      <div id="scan-msg" class="scan-result-msg hidden"></div>
+      <button class="btn btn-primary" id="scan-btn">📷 Nuskenuoti QR kodą</button>
+      <button class="btn btn-outline hidden" id="rescan-btn" style="margin-top:10px">🔄 Skenuoti iš naujo</button>
     </div>
 
-    <p class="footer">Geolympics · Klaipėda 2025</p>
+    <p class="footer">Geolympics · Klaipėda 2026</p>
   </div>
 
   <!-- ══════════════════════════════════════════
-       FINIŠO EKRANAS
+       TIME-UP SCREEN (didn't finish in time)
+  ══════════════════════════════════════════ -->
+  <div id="timeup-screen" class="page hidden">
+    <div class="finish-content">
+      <div class="finish-icon">⏰</div>
+      <div class="finish-title" style="color:var(--amber);">LAIKAS BAIGĖSI</div>
+      <p class="finish-time">Grįžkite į pradinę vietą!</p>
+      <div class="card" style="margin-top:32px;text-align:left;">
+        <div class="card-title">✅ Rasti waypoint</div>
+        <div id="timeup-found-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       FINISH SCAN SCREEN (scan GEOLYMPICS_FINISH)
+       — for GROUPS, everyone must scan
+  ══════════════════════════════════════════ -->
+  <div id="finish-scan-screen" class="page hidden">
+    <div class="waiting-content" style="padding-top:40px;">
+      <div class="pulse-ring" style="margin-bottom:24px;">
+        <span class="compass-emoji">🏁</span>
+      </div>
+      <h2 style="font-size:clamp(28px,8vw,48px);margin-bottom:8px;">Finišo QR kodas!</h2>
+      <p style="margin-bottom:32px;">Grįžkite į finišą ir nuskenuokite QR kodą.</p>
+
+      <div class="scanner-wrap" style="opacity:1;animation:none;">
+        <div id="finish-qr-reader"></div>
+        <div id="finish-scan-msg" class="scan-result-msg hidden"></div>
+        <button class="btn btn-primary" id="finish-scan-btn">📷 Nuskenuoti finišo QR</button>
+        <button class="btn btn-outline hidden" id="finish-rescan-btn" style="margin-top:10px;">🔄 Bandyti dar kartą</button>
+      </div>
+
+      <!-- Group: show who scanned finish -->
+      <div id="finish-group-status" class="group-members-panel hidden" style="margin-top:24px;">
+        <div class="group-members-title">👥 Grupė: <span id="finish-group-name">—</span></div>
+        <div class="group-members-info">Visi nariai turi nuskenuoti finišo QR kodą.</div>
+        <ul id="finish-members-scanned" class="group-members-list"></ul>
+      </div>
+    </div>
+    <p class="footer">Geolympics · Klaipėda 2026</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       FINAL FINISH SCREEN
   ══════════════════════════════════════════ -->
   <div id="finish-screen" class="page hidden">
     <div class="finish-content">
-
-      <!-- Trophy icon -->
-      <div class="finish-icon" id="finish-icon">🏆</div>
-
-      <!-- "Tu esi X-as" -->
-      <div style="font-family:var(--font-head);font-size:20px;letter-spacing:0.12em;color:var(--text-muted);margin-bottom:4px;animation:fadeUp 0.4s 0.2s ease both;opacity:0;animation-fill-mode:both;">
-        TU ESI
-      </div>
-      <div id="finish-place" style="font-family:var(--font-head);font-size:80px;line-height:1;color:var(--amber);text-shadow:0 0 40px rgba(251,191,36,0.4);animation:fadeUp 0.5s 0.3s ease both;opacity:0;animation-fill-mode:both;">
-        —
-      </div>
-      <div id="finish-place-label" style="font-family:var(--font-head);font-size:22px;letter-spacing:0.1em;color:var(--amber);margin-bottom:8px;animation:fadeUp 0.5s 0.35s ease both;opacity:0;animation-fill-mode:both;">
-        VIETA
-      </div>
-
-      <!-- Laikas -->
-      <p class="finish-time" style="animation:fadeUp 0.5s 0.45s ease both;opacity:0;animation-fill-mode:both;">
-        Jūsų laikas: <span id="finish-time-val">—</span>
+      <div class="finish-icon">🏆</div>
+      <div class="finish-title">FINIŠAS!</div>
+      <p class="finish-time">Liko laiko: <span id="finish-time-val" style="color:var(--accent);">—</span></p>
+      <p style="color:var(--text-muted);font-size:14px;margin-top:16px;">
+        Puikiai padirbėjote! Laukite rezultatų paskelbimo.
       </p>
-
-      <!-- "Palaukite kitų žaidėjų" -->
-      <div style="margin-top:20px;padding:12px 24px;background:var(--surface2);border:1px solid var(--border);border-radius:999px;font-size:14px;color:var(--text-muted);letter-spacing:0.06em;animation:fadeUp 0.5s 0.55s ease both;opacity:0;animation-fill-mode:both;text-align:center;">
-        ⏳ Palaukite kitų žaidėjų...
-      </div>
-
-      <!-- Live lyderių lentelė -->
-      <div style="margin-top:28px;width:100%;max-width:420px;animation:fadeUp 0.5s 0.65s ease both;opacity:0;animation-fill-mode:both;">
-        <div style="font-family:var(--font-head);font-size:22px;letter-spacing:0.08em;color:var(--amber);margin-bottom:14px;display:flex;align-items:center;gap:8px;">
-          🏆 Lyderių lentelė
-          <span style="font-family:var(--font-body);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-left:4px;">• gyva</span>
-        </div>
-        <div id="finish-leaderboard"></div>
-      </div>
-
     </div>
   </div>
 
-  <!-- Toast pranešimų konteineris -->
+  <!-- Congratulations screen (triggered by admin) -->
+  <div id="congrats-screen" class="page hidden">
+    <div class="finish-content">
+      <div class="finish-icon" style="font-size:100px;animation:floatIcon 3s ease-in-out infinite;">🎉</div>
+      <div class="finish-title" style="color:var(--amber);">SVEIKINAME!</div>
+      <div id="congrats-place" style="font-family:var(--font-head);font-size:60px;color:var(--accent);margin:12px 0;text-shadow:var(--glow-lg);"></div>
+      <p class="finish-time" style="font-size:16px;color:var(--text-mid);">
+        Visi žaidėjai pasirodė puikiai!<br>Laukite oficialių rezultatų.
+      </p>
+    </div>
+  </div>
+
+  <!-- Toast -->
   <div class="toast" id="toast"></div>
 
-  <!-- ══════════════════════════════════════════
-       FIREBASE + html5-qrcode
-  ══════════════════════════════════════════ -->
+  <!-- Firebase + QR scanner -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="firebase-config.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
-  <!-- ══════════════════════════════════════════
-       ŽAIDIMO LOGIKA
-  ══════════════════════════════════════════ -->
   <script>
   (function () {
     'use strict';
 
-    // ── Konstanta: kiek stotelių ─────────────────────────────
     const TOTAL_WAYPOINTS = 10;
+    const STAGGER_MS      = 3 * 60 * 1000;   // 3 minutes stagger window
+    const CD_SECS         = 3;               // final 3-2-1 countdown
 
-    // ── Gauti žaidėjo duomenis ────────────────────────────────
+    // ── Player identity ───────────────────────────────────────
     const nickname  = localStorage.getItem('geolympics_nick');
     const playerKey = localStorage.getItem('geolympics_key');
+    const mode      = localStorage.getItem('geolympics_mode');   // 'solo' | 'group'
+    const groupKey  = localStorage.getItem('geolympics_group');
+    const groupName = localStorage.getItem('geolympics_groupName');
 
-    if (!nickname || !playerKey) {
-      window.location.href = 'index.html';
-      return;
-    }
+    if (!nickname || !playerKey) { window.location.href = 'index.html'; return; }
 
-    // ── Ekranai ──────────────────────────────────────────────
-    const gameScreen   = document.getElementById('game-screen');
-    const finishScreen = document.getElementById('finish-screen');
+    // ── Screens ──────────────────────────────────────────────
+    const startScanScreen  = document.getElementById('start-scan-screen');
+    const countdownScreen  = document.getElementById('countdown-screen');
+    const gameScreen       = document.getElementById('game-screen');
+    const timeupScreen     = document.getElementById('timeup-screen');
+    const finishScanScreen = document.getElementById('finish-scan-screen');
+    const finishScreen     = document.getElementById('finish-screen');
+    const congratsScreen   = document.getElementById('congrats-screen');
 
-    // ── UI elementai ─────────────────────────────────────────
-    const hdrNickname   = document.getElementById('hdr-nickname');
-    const progText      = document.getElementById('prog-text');
-    const progFill      = document.getElementById('prog-fill');
-    const wpNumber      = document.getElementById('wp-number');
-    const coordsDisplay = document.getElementById('coords-display');
-    const wpHint        = document.getElementById('wp-hint');
-    const scanBtn       = document.getElementById('scan-btn');
-    const rescanBtn     = document.getElementById('rescan-btn');
-    const scanMsg       = document.getElementById('scan-msg');
-    const finishTimeVal = document.getElementById('finish-time-val');
-    const toastEl       = document.getElementById('toast');
-
-    hdrNickname.textContent = nickname;
-
-    // ── QR kodo skenerio kintamieji ───────────────────────────
-    let html5QrCode = null;
-    let scannerActive = false;
+    // ── Game state ────────────────────────────────────────────
     let currentWaypoint = 1;
-    let gameStartTime = null;
-    let waypoints = {};
+    let myStartTime     = null;
+    let waypoints       = {};
+    let gameDurationMs  = 60 * 60 * 1000;
+    let timerInterval   = null;
+    let scannerActive   = false;
+    let html5QrCode     = null;
 
-    // ── Tab logika ────────────────────────────────────────────
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const tab = btn.dataset.tab;
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById('tab-' + tab).classList.add('active');
-      });
-    });
+    // ── UI refs (game screen) ──────────────────────────────────
+    document.getElementById('hdr-nickname').textContent = nickname;
+    const hdrModeBadge = document.getElementById('hdr-mode-badge');
+    // FIX: mode-badge-group CSS class doesn't exist — reuse mode-badge-solo styling for both modes
+    if (mode === 'group') { hdrModeBadge.textContent = '👥'; }
 
-    // ── Pagrindinė inicializacija ─────────────────────────────
+    const timerDisplay = document.getElementById('timer-display');
+    const progText     = document.getElementById('prog-text');
+    const progFill     = document.getElementById('prog-fill');
+    const wpNumber     = document.getElementById('wp-number');
+    const coordsDisp   = document.getElementById('coords-display');
+    const wpHint       = document.getElementById('wp-hint');
+    const scanBtn      = document.getElementById('scan-btn');
+    const rescanBtn    = document.getElementById('rescan-btn');
+    const scanMsg      = document.getElementById('scan-msg');
+    const toastEl      = document.getElementById('toast');
+
+    // ── INIT ──────────────────────────────────────────────────
     function init() {
-      // Klausyti: ar žaidimas vis dar aktyvus?
-      db.ref('game/started').on('value', snap => {
-        if (snap.val() === false) {
+      // Listen for game ended / congratulate
+      db.ref('game').on('value', snap => {
+        const data = snap.val() || {};
+        if (data.congratulate === true) { showCongratsScreen(); return; }
+        if (data.started === false && data.ended === true) {
           window.location.href = 'index.html';
         }
       });
 
-      // Gauti žaidimo pradžios laiką
-      db.ref('game/startTime').once('value').then(snap => {
-        gameStartTime = snap.val();
+      db.ref('game/durationMs').once('value').then(snap => {
+        if (snap.val()) gameDurationMs = snap.val();
       });
 
-      // Gauti stotelių koordinates
       db.ref('game/waypoints').once('value').then(snap => {
-        if (snap.exists()) {
-          waypoints = snap.val();
-        } else {
-          // Naudoti numatytas iš firebase-config.js
-          DEFAULT_WAYPOINTS.forEach(wp => {
-            waypoints[wp.id] = { lat: wp.lat, lng: wp.lng, hint: wp.hint };
-          });
+        waypoints = snap.exists() ? snap.val() : {};
+        if (!snap.exists()) {
+          DEFAULT_WAYPOINTS.forEach(wp => { waypoints[wp.id] = { lat: wp.lat, lng: wp.lng, hint: wp.hint }; });
         }
         loadPlayerState();
       });
     }
 
-    // ── Įkelti žaidėjo būseną iš Firebase ────────────────────
-    function loadPlayerState() {
-      db.ref('players/' + playerKey).on('value', snap => {
-        const data = snap.val();
-        if (!data) {
-          window.location.href = 'index.html';
-          return;
+    // ── Congrats screen with player's rank ────────────────────
+    function showCongratsScreen() {
+      if (timerInterval) clearInterval(timerInterval);
+
+      // Determine this player's rank among finishers
+      db.ref('players').once('value').then(snap => {
+        const allPlayers = snap.val() || {};
+        const finishers  = Object.values(allPlayers)
+          .filter(p => p.finishTime)
+          .sort((a, b) => (b.timeLeft || 0) - (a.timeLeft || 0));
+
+        let rankText = '';
+        const myIndex = finishers.findIndex(p => safeKey(p.nickname || '') === playerKey);
+        if (myIndex >= 0) {
+          const medals = ['🥇 1 VIETA', '🥈 2 VIETA', '🥉 3 VIETA'];
+          rankText = myIndex < 3 ? medals[myIndex] : (myIndex + 1) + ' VIETA';
         }
+
+        document.getElementById('congrats-place').textContent = rankText;
+        showScreen(congratsScreen);
+      }).catch(() => showScreen(congratsScreen));
+    }
+
+    // ── Load player state ──────────────────────────────────────
+    function loadPlayerState() {
+      db.ref('players/' + playerKey).once('value').then(snap => {
+        const data = snap.val();
+        if (!data) { window.location.href = 'index.html'; return; }
 
         currentWaypoint = data.currentWaypoint || 1;
+        myStartTime     = data.startTime || null;
 
-        if (data.finishTime) {
-          // Žaidėjas jau finišavo
-          showFinishScreen(data.finishTime);
-          return;
+        if (data.congratulate) { showCongratsScreen(); return; }
+        if (data.finishTime)   { showFinishedScreen(data.finishTime); return; }
+        if (data.timeUp)       { showTimeUp(data); return; }
+
+        if (!myStartTime) {
+          showScreen(startScanScreen);
+          initStartScanner();
+        } else {
+          const elapsed = Date.now() - myStartTime;
+          if (elapsed >= STAGGER_MS) {
+            enterGame();
+          } else {
+            enterCountdown(myStartTime);
+          }
         }
-
-        if (currentWaypoint > TOTAL_WAYPOINTS) {
-          // Turėtų nerodyti, bet jei taip — finišas
-          const ft = Date.now();
-          db.ref('players/' + playerKey).update({ finishTime: ft });
-          showFinishScreen(ft);
-          return;
-        }
-
-        // Rodyti žaidimo ekraną
-        gameScreen.classList.remove('hidden');
-        updateUI(currentWaypoint);
-      });
-
-      // Gyva lyderių lentelė
-      db.ref('players').on('value', snap => {
-        renderLeaderboard(snap.val(), 'leaderboard-list');
-        renderLeaderboard(snap.val(), 'finish-leaderboard');
       });
     }
 
-    // ── Atnaujinti UI ─────────────────────────────────────────
-    function updateUI(wpNum) {
+    // ════════════════════════════════════════════
+    //  START QR SCANNER
+    // ════════════════════════════════════════════
+    let startQr = null;
+    let startScanActive = false;
+
+    function initStartScanner() {
+      if (mode === 'group' && groupKey) {
+        const panel = document.getElementById('start-group-status');
+        panel.classList.remove('hidden');
+        document.getElementById('start-group-name').textContent = groupName || groupKey;
+
+        db.ref('groups/' + groupKey + '/members').on('value', snap => {
+          const members = snap.val() || {};
+          const list    = document.getElementById('start-members-scanned');
+          list.innerHTML = Object.entries(members).map(([k, m]) => {
+            const scanned = !!m.startScanned;
+            return `<li class="group-member-item ${scanned ? 'scanned' : ''}">${scanned ? '✅' : '⏳'} ${escHtml(m.nickname)}</li>`;
+          }).join('');
+        });
+      }
+    }
+
+    const startScanBtn   = document.getElementById('start-scan-btn');
+    const startRescanBtn = document.getElementById('start-rescan-btn');
+    const startScanMsg   = document.getElementById('start-scan-msg');
+
+    startScanBtn.addEventListener('click', () => {
+      if (startScanActive) return;
+      startScanBtn.disabled = true;
+      startScanBtn.innerHTML = '<span class="spinner"></span>Jungiamasi...';
+      startScanMsg.classList.add('hidden');
+
+      startQr = new Html5Qrcode('start-qr-reader');
+      startQr.start({ facingMode: 'environment' }, { fps:10, qrbox:{width:250,height:250} },
+        decodedText => {
+          if (startScanActive) { stopQr(startQr); startScanActive = false; }
+          handleStartQR(decodedText.trim());
+        }, () => {}
+      ).then(() => {
+        startScanActive = true;
+        startScanBtn.innerHTML = '🔴 Skenuojama...';
+      }).catch(() => {
+        showMsg(startScanMsg, '❌ Kamera nepasiekiama.', 'error');
+        startScanBtn.disabled = false;
+        startScanBtn.innerHTML = '📷 Atidaryti kamerą';
+      });
+    });
+
+    startRescanBtn.addEventListener('click', () => {
+      startScanMsg.classList.add('hidden');
+      startRescanBtn.classList.add('hidden');
+      startScanBtn.click();
+    });
+
+    function handleStartQR(code) {
+      if (code !== 'GEOLYMPICS_START') {
+        showMsg(startScanMsg, '❌ Neteisingas QR kodas. Ieškokite PRADŽIOS kodo.', 'error');
+        startRescanBtn.classList.remove('hidden');
+        startScanBtn.disabled = false;
+        startScanBtn.innerHTML = '📷 Atidaryti kamerą';
+        return;
+      }
+
+      showMsg(startScanMsg, '✅ Puiku! Laukiama...', 'success');
+      startScanBtn.disabled = true;
+      startScanBtn.innerHTML = '✅ Nuskenuota!';
+
+      const now     = Date.now();
+      const updates = {};
+
+      if (mode === 'group' && groupKey) {
+        updates['groups/' + groupKey + '/members/' + playerKey + '/startScanned']  = true;
+        updates['groups/' + groupKey + '/members/' + playerKey + '/startScanTime'] = now;
+        db.ref().update(updates).then(() => watchGroupStartScan());
+      } else {
+        updates['players/' + playerKey + '/startTime'] = now;
+        db.ref().update(updates).then(() => {
+          myStartTime = now;
+          enterCountdown(now);
+        });
+      }
+    }
+
+    function watchGroupStartScan() {
+      // FIX: guard prevents enterCountdown being called multiple times
+      // (the .on() listener fires on every Firebase change, not just once)
+      let countdownStarted = false;
+      db.ref('groups/' + groupKey).on('value', snap => {
+        const g = snap.val();
+        if (!g) return;
+        const members    = g.members || {};
+        const allScanned = Object.values(members).every(m => m.startScanned);
+
+        if (allScanned && !g.startTime) {
+          db.ref('groups/' + groupKey + '/startTime').set(Date.now());
+        }
+
+        if (g.startTime && !countdownStarted) {
+          countdownStarted = true;
+          // Detach this listener now — we only need it until startTime is set
+          db.ref('groups/' + groupKey).off('value');
+          db.ref('players/' + playerKey + '/startTime').once('value').then(s => {
+            if (!s.val()) {
+              db.ref('players/' + playerKey + '/startTime').set(g.startTime);
+            }
+            myStartTime = g.startTime;
+            enterCountdown(g.startTime);
+          });
+        }
+      });
+    }
+
+    // ════════════════════════════════════════════
+    //  COUNTDOWN (3-min stagger + 3-2-1)
+    // ════════════════════════════════════════════
+    function enterCountdown(myStart) {
+      showScreen(countdownScreen);
+
+      if (mode === 'group' && groupKey) {
+        document.getElementById('cd-group-panel').classList.remove('hidden');
+        document.getElementById('cd-group-name').textContent = groupName || groupKey;
+        db.ref('groups/' + groupKey + '/members').on('value', snap => {
+          const members = snap.val() || {};
+          document.getElementById('cd-members-list').innerHTML =
+            Object.values(members).map(m =>
+              `<li class="group-member-item ${m.startScanned ? 'scanned' : ''}">${m.startScanned ? '✅' : '⏳'} ${escHtml(m.nickname)}</li>`
+            ).join('');
+        });
+      }
+
+      const cdLabel  = document.getElementById('cd-label');
+      const cdNumber = document.getElementById('cd-number');
+      const cdSub    = document.getElementById('cd-sub');
+
+      function tick() {
+        const elapsed   = Date.now() - myStart;
+        const remaining = STAGGER_MS - elapsed;
+
+        if (remaining > CD_SECS * 1000) {
+          const secs = Math.ceil(remaining / 1000);
+          const m    = Math.floor(secs / 60);
+          const s    = secs % 60;
+          cdLabel.textContent  = 'Laukiama starto...';
+          cdNumber.textContent = pad(m) + ':' + pad(s);
+          cdSub.textContent    = 'Kiti ieškotojai vis dar jungiasi';
+          setTimeout(tick, 500);
+        } else if (remaining > 0) {
+          const secs = Math.ceil(remaining / 1000);
+          cdLabel.textContent  = 'PASIRUOŠKITE!';
+          cdNumber.textContent = secs;
+          cdNumber.style.color = 'var(--danger)';
+          cdSub.textContent    = 'Tuoj prasideda!';
+          setTimeout(tick, 200);
+        } else {
+          cdLabel.textContent  = '';
+          cdNumber.textContent = 'PIRMYN!';
+          cdNumber.style.color = 'var(--accent)';
+          cdSub.textContent    = '';
+          setTimeout(() => enterGame(), 900);
+        }
+      }
+      tick();
+    }
+
+    // ════════════════════════════════════════════
+    //  MAIN GAME
+    // ════════════════════════════════════════════
+    function enterGame() {
+      showScreen(gameScreen);
+
+      // FIX: Listen to game/congratulate directly here.
+      // Previously the code checked data.congratulate on the player record (line below),
+      // but that field is never written — only game/congratulate is set by the admin.
+      db.ref('game/congratulate').on('value', snap => {
+        if (snap.val() === true) showCongratsScreen();
+      });
+
+      if (!myStartTime) {
+        db.ref('players/' + playerKey + '/startTime').once('value').then(s => {
+          myStartTime = s.val() || Date.now();
+          startGameTimer();
+        });
+      } else {
+        startGameTimer();
+      }
+
+      if (mode === 'group' && groupKey) {
+        document.getElementById('group-scan-status').classList.remove('hidden');
+        db.ref('groups/' + groupKey + '/currentWaypoint').on('value', snap => {
+          if (snap.val() && snap.val() > currentWaypoint) {
+            currentWaypoint = snap.val();
+            db.ref('players/' + playerKey + '/currentWaypoint').set(currentWaypoint);
+            updateGameUI(currentWaypoint);
+            scanMsg.classList.add('hidden');
+            watchGroupScanStatus();
+          }
+        });
+        watchGroupScanStatus();
+      }
+
+      db.ref('players/' + playerKey).on('value', snap => {
+        const data = snap.val();
+        if (!data) return;
+        // FIX: removed data.congratulate check here — that field is never written
+        // to the player record. game/congratulate is now listened to directly above.
+        if (data.timeUp)       { showTimeUp(data); return; }
+        if (data.finishTime)   { showFinishedScreen(data.finishTime); return; }
+        currentWaypoint = data.currentWaypoint || 1;
+        if (data.readyForFinish) { enterFinishScan(); return; }
+        updateGameUI(currentWaypoint);
+      });
+
+      updateGameUI(currentWaypoint);
+    }
+
+    function startGameTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+
+      timerInterval = setInterval(() => {
+        if (!myStartTime) return;
+        const elapsed   = Date.now() - myStartTime;
+        const remaining = gameDurationMs - elapsed;
+
+        if (remaining <= 0) {
+          clearInterval(timerInterval);
+          timerDisplay.textContent = '00:00';
+          handleTimeUp();
+          return;
+        }
+
+        const totalSec = Math.ceil(remaining / 1000);
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        timerDisplay.textContent = pad(m) + ':' + pad(s);
+
+        if (remaining < 5 * 60 * 1000) {
+          document.getElementById('timer-bar').classList.add('timer-urgent');
+        }
+      }, 1000);
+    }
+
+    function updateGameUI(wpNum) {
       const done = wpNum - 1;
       progText.textContent = done + ' / ' + TOTAL_WAYPOINTS;
       progFill.style.width = ((done / TOTAL_WAYPOINTS) * 100) + '%';
@@ -257,222 +570,368 @@
 
       const wp = waypoints[wpNum];
       if (wp) {
-        coordsDisplay.textContent = wp.lat.toFixed(6) + ',\n' + wp.lng.toFixed(6);
+        coordsDisp.textContent = wp.lat.toFixed(6) + ',\n' + wp.lng.toFixed(6);
         wpHint.textContent = wp.hint || '';
       } else {
-        coordsDisplay.textContent = '— nėra koordinačių —';
+        coordsDisp.textContent = '— nėra koordinačių —';
       }
     }
 
-    // ── QR SKENERIS ───────────────────────────────────────────
-    scanBtn.addEventListener('click', startScanner);
+    // FIX: store listener ref so we can detach before re-attaching on each waypoint
+    let _groupScanListenerWp  = null;
+    let _groupScanListenerCb  = null;
+
+    function watchGroupScanStatus() {
+      if (!groupKey) return;
+
+      // Detach previous listener if it was for a different waypoint
+      if (_groupScanListenerWp !== null && _groupScanListenerCb) {
+        db.ref('groups/' + groupKey + '/wpScans/' + _groupScanListenerWp).off('value', _groupScanListenerCb);
+      }
+
+      _groupScanListenerWp = currentWaypoint;
+      _groupScanListenerCb = db.ref('groups/' + groupKey + '/wpScans/' + currentWaypoint).on('value', snap => {
+        const scans = snap.val() || {};
+        const list  = document.getElementById('group-scanned-list');
+        db.ref('groups/' + groupKey + '/members').once('value').then(mSnap => {
+          const members = mSnap.val() || {};
+          list.innerHTML = Object.values(members).map(m => {
+            const key     = safeKey(m.nickname);
+            const scanned = !!scans[key];
+            return `<li class="group-member-item ${scanned ? 'scanned' : ''}">${scanned ? '✅' : '⏳'} ${escHtml(m.nickname)}</li>`;
+          }).join('');
+        });
+      });
+    }
+
+    // ── QR Scanner (main game) ────────────────────────────────
+    scanBtn.addEventListener('click', startMainScanner);
     rescanBtn.addEventListener('click', () => {
-      hideScanMsg();
+      scanMsg.classList.add('hidden');
       rescanBtn.classList.add('hidden');
-      startScanner();
+      startMainScanner();
     });
 
-    function startScanner() {
+    function startMainScanner() {
       if (scannerActive) return;
-
       scanBtn.disabled = true;
-      scanBtn.innerHTML = '<span class="spinner"></span>Jungiamasi prie kameros...';
-      hideScanMsg();
+      scanBtn.innerHTML = '<span class="spinner"></span>Jungiamasi...';
+      scanMsg.classList.add('hidden');
 
       html5QrCode = new Html5Qrcode('qr-reader');
-
-      const config = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
-      };
-
-      html5QrCode.start(
-        { facingMode: 'environment' }, // galinė kamera
-        config,
-        onScanSuccess,
-        () => {} // ignoruoti klaidas kol neskanuoja
-      )
-      .then(() => {
+      html5QrCode.start({ facingMode: 'environment' }, { fps:10, qrbox:{width:250,height:250} },
+        decodedText => { stopMainScanner(); handleWaypointQR(decodedText.trim()); },
+        () => {}
+      ).then(() => {
         scannerActive = true;
-        scanBtn.innerHTML = '🔴 Skenuojama... (nukreipkite į QR)';
-      })
-      .catch(err => {
-        console.error('Kameros klaida:', err);
-        showScanMsg('❌ Kamera nepasiekiama. Patikrinkite leidimus.', 'error');
+        scanBtn.innerHTML = '🔴 Skenuojama...';
+      }).catch(() => {
+        showMsg(scanMsg, '❌ Kamera nepasiekiama.', 'error');
         scanBtn.disabled = false;
         scanBtn.innerHTML = '📷 Nuskenuoti QR kodą';
       });
     }
 
-    function stopScanner() {
-      if (html5QrCode && scannerActive) {
-        html5QrCode.stop().catch(() => {});
-        scannerActive = false;
-      }
+    function stopMainScanner() {
+      if (html5QrCode && scannerActive) { html5QrCode.stop().catch(() => {}); scannerActive = false; }
       scanBtn.disabled = false;
       scanBtn.innerHTML = '📷 Nuskenuoti QR kodą';
     }
 
-    function onScanSuccess(decodedText) {
-      stopScanner();
-      handleQRResult(decodedText.trim());
-    }
-
-    // ── QR rezultato apdorojimas ──────────────────────────────
-    function handleQRResult(code) {
-      // Tikėtinas formatas: GEOLYMPICS_WP_1 ... GEOLYMPICS_WP_10
+    function handleWaypointQR(code) {
       const expected = 'GEOLYMPICS_WP_' + currentWaypoint;
 
-      if (code === expected) {
-        // ✅ Teisingas QR!
-        const now = Date.now();
-        const updates = {};
-        updates['players/' + playerKey + '/waypoints/' + currentWaypoint + '/completedAt'] = now;
-
-        const nextWp = currentWaypoint + 1;
-
-        if (nextWp > TOTAL_WAYPOINTS) {
-          // 🏆 Finišas!
-          updates['players/' + playerKey + '/finishTime'] = now;
-          updates['players/' + playerKey + '/currentWaypoint'] = nextWp;
-          db.ref().update(updates).then(() => showFinishScreen(now));
-          showScanMsg('🏆 Puiku! Tai paskutinis waypoint!', 'success');
-        } else {
-          // ➡️ Kita stotis
-          updates['players/' + playerKey + '/currentWaypoint'] = nextWp;
-          db.ref().update(updates).then(() => {
-            currentWaypoint = nextWp;
-            updateUI(nextWp);
-            showToast('✅ Waypoint ' + (nextWp - 1) + ' užfiksuota! Einame prie ' + nextWp + '...', 'success');
-            hideScanMsg();
-          });
-          showScanMsg('✅ Teisingai! Eikite į kitą waypoint.', 'success');
-        }
-      } else {
-        // ❌ Neteisingas QR
-        const wpNum = extractWaypointNum(code);
-        if (wpNum !== null && wpNum !== currentWaypoint) {
-          showScanMsg(`❌ Tai ${wpNum}-os waypoint, o reikia ${currentWaypoint}-os. Ieškokite tinkamo QR!`, 'error');
-        } else {
-          showScanMsg('❌ Neatpažintas QR kodas. Bandykite dar kartą.', 'error');
-        }
+      if (code !== expected) {
+        const n = code.match(/^GEOLYMPICS_WP_(\d+)$/);
+        const msg = n
+          ? `❌ Tai ${n[1]}-os stotis, o reikia ${currentWaypoint}-os. Ieškokite tinkamo QR!`
+          : '❌ Neatpažintas QR kodas.';
+        showMsg(scanMsg, msg, 'error');
         rescanBtn.classList.remove('hidden');
-      }
-    }
-
-    function extractWaypointNum(code) {
-      const m = code.match(/^GEOLYMPICS_WP_(\d+)$/);
-      return m ? parseInt(m[1]) : null;
-    }
-
-    // ── Finišo ekranas ────────────────────────────────────────
-    function showFinishScreen(finishTime) {
-      gameScreen.classList.add('hidden');
-      finishScreen.classList.remove('hidden');
-
-      if (gameStartTime && finishTime) {
-        const elapsed = finishTime - gameStartTime;
-        finishTimeVal.textContent = formatElapsed(elapsed);
-      } else {
-        finishTimeVal.textContent = '—';
-      }
-    }
-
-    // ── Lyderių lentelė ───────────────────────────────────────
-    function renderLeaderboard(playersData, containerId) {
-      const container = document.getElementById(containerId);
-      if (!container) return;
-      if (!playersData) {
-        container.innerHTML = '<div class="empty-state"><span class="empty-icon">👥</span>Nėra žaidėjų</div>';
         return;
       }
 
-      const players = Object.values(playersData);
+      showMsg(scanMsg, '✅ Teisingai! Registruojama...', 'success');
+      const now = Date.now();
 
-      // Padalinti į finišavusius ir žaidžiančius
-      const finished = players
-        .filter(p => p.finishTime)
-        .sort((a, b) => {
-          const ta = a.finishTime - (gameStartTime || 0);
-          const tb = b.finishTime - (gameStartTime || 0);
-          return ta - tb;
+      if (mode === 'group' && groupKey) {
+        db.ref('groups/' + groupKey + '/wpScans/' + currentWaypoint + '/' + playerKey).set(true).then(() => {
+          return Promise.all([
+            db.ref('groups/' + groupKey + '/wpScans/' + currentWaypoint).once('value'),
+            db.ref('groups/' + groupKey + '/members').once('value')
+          ]);
+        }).then(([scanSnap, memberSnap]) => {
+          const scans      = scanSnap.val()   || {};
+          const members    = memberSnap.val() || {};
+          const allScanned = Object.keys(members).every(k => scans[k]);
+
+          if (allScanned) {
+            advanceWaypoint(now);
+          } else {
+            showMsg(scanMsg, '✅ Nuskenavote! Laukiama likusių grupės narių...', 'success');
+            // FIX: removed duplicate db.ref('groups/.../currentWaypoint').on() here.
+            // The listener already set up in enterGame() handles waypoint advancement
+            // for all group members. Adding another one here caused listeners to
+            // accumulate with each waypoint scanned.
+            watchGroupScanStatus();
+          }
         });
+      } else {
+        advanceWaypoint(now);
+      }
+    }
 
-      const playing = players
-        .filter(p => !p.finishTime)
-        .sort((a, b) => (b.currentWaypoint || 1) - (a.currentWaypoint || 1));
+    function advanceWaypoint(now) {
+      const nextWp  = currentWaypoint + 1;
+      const updates = {};
 
-      const all = [...finished, ...playing];
+      updates['players/' + playerKey + '/waypoints/' + currentWaypoint + '/completedAt'] = now;
 
-      if (all.length === 0) {
-        container.innerHTML = '<div class="empty-state"><span class="empty-icon">👥</span>Nėra žaidėjų</div>';
+      if (mode === 'group' && groupKey) {
+        db.ref('groups/' + groupKey + '/members').once('value').then(snap => {
+          const members = snap.val() || {};
+          Object.keys(members).forEach(k => {
+            updates['players/' + k + '/waypoints/' + currentWaypoint + '/completedAt'] = now;
+            if (nextWp > TOTAL_WAYPOINTS) {
+              updates['players/' + k + '/readyForFinish'] = true;
+            } else {
+              updates['players/' + k + '/currentWaypoint'] = nextWp;
+            }
+          });
+          updates['groups/' + groupKey + '/currentWaypoint'] = nextWp;
+          return db.ref().update(updates);
+        }).then(() => {
+          if (nextWp > TOTAL_WAYPOINTS) {
+            enterFinishScan();
+          } else {
+            currentWaypoint = nextWp;
+            updateGameUI(nextWp);
+            showToast('✅ Stotis ' + (nextWp-1) + ' užfiksuota! Einame prie ' + nextWp + '!', 'success');
+            scanMsg.classList.add('hidden');
+            watchGroupScanStatus();
+          }
+        });
+      } else {
+        if (nextWp > TOTAL_WAYPOINTS) {
+          updates['players/' + playerKey + '/readyForFinish'] = true;
+        } else {
+          updates['players/' + playerKey + '/currentWaypoint'] = nextWp;
+        }
+        db.ref().update(updates).then(() => {
+          if (nextWp > TOTAL_WAYPOINTS) {
+            enterFinishScan();
+          } else {
+            currentWaypoint = nextWp;
+            updateGameUI(nextWp);
+            showToast('✅ Stotis ' + (nextWp-1) + ' užfiksuota! Einame prie ' + nextWp + '!', 'success');
+            scanMsg.classList.add('hidden');
+          }
+        });
+      }
+    }
+
+    // ════════════════════════════════════════════
+    //  FINISH QR SCAN
+    //  For groups: ALL members must scan individually
+    // ════════════════════════════════════════════
+    let finishQr = null;
+    let finishScanActive = false;
+    let iHaveScannedFinish = false;
+
+    function enterFinishScan() {
+      if (timerInterval) clearInterval(timerInterval);
+      showScreen(finishScanScreen);
+
+      if (mode === 'group' && groupKey) {
+        const panel = document.getElementById('finish-group-status');
+        panel.classList.remove('hidden');
+        document.getElementById('finish-group-name').textContent = groupName || groupKey;
+
+        // Live-listen to who has scanned finish
+        db.ref('groups/' + groupKey + '/finishScans').on('value', snap => {
+          const scans = snap.val() || {};
+          db.ref('groups/' + groupKey + '/members').once('value').then(mSnap => {
+            const members = mSnap.val() || {};
+            const list    = document.getElementById('finish-members-scanned');
+            list.innerHTML = Object.values(members).map(m => {
+              const key     = safeKey(m.nickname);
+              const scanned = !!scans[key];
+              return `<li class="group-member-item ${scanned ? 'scanned' : ''}">${scanned ? '✅' : '⏳'} ${escHtml(m.nickname)}</li>`;
+            }).join('');
+
+            // If everyone scanned, and this player is already done, just wait
+            const allDone = Object.keys(members).every(k => scans[k]);
+            if (allDone && iHaveScannedFinish) {
+              recordGroupFinish();
+            }
+          });
+        });
+      }
+    }
+
+    const finishScanBtn   = document.getElementById('finish-scan-btn');
+    const finishRescanBtn = document.getElementById('finish-rescan-btn');
+    const finishScanMsg   = document.getElementById('finish-scan-msg');
+
+    finishScanBtn.addEventListener('click', () => {
+      if (finishScanActive) return;
+      finishScanBtn.disabled = true;
+      finishScanBtn.innerHTML = '<span class="spinner"></span>Jungiamasi...';
+      finishScanMsg.classList.add('hidden');
+
+      finishQr = new Html5Qrcode('finish-qr-reader');
+      finishQr.start({ facingMode: 'environment' }, { fps:10, qrbox:{width:250,height:250} },
+        decodedText => {
+          stopQr(finishQr); finishScanActive = false;
+          handleFinishQR(decodedText.trim());
+        }, () => {}
+      ).then(() => {
+        finishScanActive = true;
+        finishScanBtn.innerHTML = '🔴 Skenuojama...';
+      }).catch(() => {
+        showMsg(finishScanMsg, '❌ Kamera nepasiekiama.', 'error');
+        finishScanBtn.disabled = false;
+        finishScanBtn.innerHTML = '📷 Nuskenuoti finišo QR';
+      });
+    });
+
+    finishRescanBtn.addEventListener('click', () => {
+      finishScanMsg.classList.add('hidden');
+      finishRescanBtn.classList.add('hidden');
+      finishScanBtn.click();
+    });
+
+    function handleFinishQR(code) {
+      if (code !== 'GEOLYMPICS_FINISH') {
+        showMsg(finishScanMsg, '❌ Neteisingas QR. Ieškokite FINIŠO kodo!', 'error');
+        finishRescanBtn.classList.remove('hidden');
+        finishScanBtn.disabled = false;
+        finishScanBtn.innerHTML = '📷 Nuskenuoti finišo QR';
         return;
       }
 
-      const rankSymbols = ['🥇', '🥈', '🥉'];
-      const rankClasses = ['gold', 'silver', 'bronze'];
+      showMsg(finishScanMsg, '✅ Nuskenuota!', 'success');
+      finishScanBtn.disabled = true;
+      finishScanBtn.innerHTML = '✅ Nuskenuota!';
+      iHaveScannedFinish = true;
 
-      container.innerHTML = all.map((p, i) => {
-        const isFinished = !!p.finishTime;
-        const rankLabel = i < 3
-          ? `<span class="lb-rank ${rankClasses[i]}">${rankSymbols[i]}</span>`
-          : `<span class="lb-rank other">${i + 1}</span>`;
+      const now     = Date.now();
+      const elapsed = myStartTime ? now - myStartTime : 0;
+      const left    = Math.max(0, gameDurationMs - elapsed);
 
-        const statusHtml = isFinished
-          ? `<div class="lb-status"><span class="time">${formatElapsed(p.finishTime - (gameStartTime || 0))}</span></div>`
-          : `<div class="lb-status"><span class="wp">Stotis ${p.currentWaypoint || 1} / ${TOTAL_WAYPOINTS}</span></div>`;
-
-        const isSelf = p.nickname === nickname;
-        const style = isSelf ? 'border-color:var(--border-hi);background:var(--surface3);' : '';
-
-        return `
-          <div class="lb-entry" style="${style}">
-            ${rankLabel}
-            <span class="lb-name">${escHtml(p.nickname || '—')}${isSelf ? ' 👈' : ''}</span>
-            ${statusHtml}
-          </div>
-        `;
-      }).join('');
+      if (mode === 'group' && groupKey) {
+        // Mark this member's finish scan
+        db.ref('groups/' + groupKey + '/finishScans/' + playerKey).set(true).then(() => {
+          showMsg(finishScanMsg, '✅ Nuskenavote! Laukiama kitų grupės narių...', 'success');
+          // The on() listener in enterFinishScan will detect when all scanned
+        });
+      } else {
+        // Solo — record finish immediately
+        db.ref('players/' + playerKey).update({
+          finishTime:     now,
+          timeLeft:       left,
+          readyForFinish: false
+        }).then(() => showFinishedScreen(now));
+      }
     }
 
-    // ── UI pagalbinės funkcijos ───────────────────────────────
-    function showScanMsg(msg, type) {
-      scanMsg.textContent = msg;
-      scanMsg.className = 'scan-result-msg ' + type;
-      scanMsg.classList.remove('hidden');
+    function recordGroupFinish() {
+      const now     = Date.now();
+      const elapsed = myStartTime ? now - myStartTime : 0;
+      const left    = Math.max(0, gameDurationMs - elapsed);
+
+      db.ref('groups/' + groupKey).once('value').then(snap => {
+        const g = snap.val();
+        if (!g || g.finishTime) return; // already recorded
+
+        const members = g.members || {};
+        const updates = {};
+        Object.keys(members).forEach(k => {
+          updates['players/' + k + '/finishTime']      = now;
+          updates['players/' + k + '/timeLeft']        = left;
+          updates['players/' + k + '/readyForFinish']  = false;
+        });
+        updates['groups/' + groupKey + '/finishTime'] = now;
+        return db.ref().update(updates);
+      }).then(() => showFinishedScreen(now)).catch(() => {});
     }
 
-    function hideScanMsg() {
-      scanMsg.classList.add('hidden');
-      scanMsg.textContent = '';
+    // ════════════════════════════════════════════
+    //  TIME UP
+    // ════════════════════════════════════════════
+    function handleTimeUp() {
+      db.ref('players/' + playerKey + '/timeUp').set(true);
+      db.ref('players/' + playerKey).once('value').then(snap => showTimeUp(snap.val() || {}));
+    }
+
+    function showTimeUp(data) {
+      if (timerInterval) clearInterval(timerInterval);
+      showScreen(timeupScreen);
+
+      const found     = data.waypoints || {};
+      const listEl    = document.getElementById('timeup-found-list');
+      const foundNums = Object.keys(found).map(Number).sort((a,b)=>a-b);
+
+      if (foundNums.length === 0) {
+        listEl.innerHTML = '<p style="color:var(--text-muted);font-size:14px;">Nerastos stotelės.</p>';
+      } else {
+        listEl.innerHTML = foundNums.map(n =>
+          `<div class="group-member-item scanned" style="margin-bottom:6px;">✅ Waypoint ${n}</div>`
+        ).join('');
+      }
+
+      // Still listen for congrats
+      db.ref('game/congratulate').on('value', snap => {
+        if (snap.val() === true) showCongratsScreen();
+      });
+    }
+
+    // ── Show finished screen ──────────────────────────────────
+    function showFinishedScreen(finishTime) {
+      if (timerInterval) clearInterval(timerInterval);
+      showScreen(finishScreen);
+
+      db.ref('players/' + playerKey + '/timeLeft').once('value').then(snap => {
+        const left = snap.val();
+        if (left != null) {
+          const m = Math.floor(left / 60000);
+          const s = Math.floor((left % 60000) / 1000);
+          document.getElementById('finish-time-val').textContent = pad(m) + 'm ' + pad(s) + 's';
+        }
+      });
+
+      db.ref('game/congratulate').on('value', snap => {
+        if (snap.val() === true) showCongratsScreen();
+      });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────
+    function showScreen(target) {
+      [startScanScreen, countdownScreen, gameScreen, timeupScreen,
+       finishScanScreen, finishScreen, congratsScreen].forEach(s => s.classList.add('hidden'));
+      target.classList.remove('hidden');
+    }
+
+    function stopQr(qr) { if (qr) qr.stop().catch(() => {}); }
+
+    function showMsg(el, msg, type) {
+      el.textContent = msg;
+      el.className   = 'scan-result-msg ' + type;
+      el.classList.remove('hidden');
     }
 
     let toastTimer;
     function showToast(msg, type = '') {
       clearTimeout(toastTimer);
       toastEl.textContent = msg;
-      toastEl.className = 'toast ' + type + ' show';
-      toastTimer = setTimeout(() => { toastEl.classList.remove('show'); }, 3500);
-    }
-
-    function formatElapsed(ms) {
-      if (!ms || ms <= 0) return '—';
-      const totalSec = Math.floor(ms / 1000);
-      const h = Math.floor(totalSec / 3600);
-      const m = Math.floor((totalSec % 3600) / 60);
-      const s = totalSec % 60;
-      if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
-      return `${pad(m)}m ${pad(s)}s`;
+      toastEl.className   = 'toast ' + type + ' show';
+      toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3500);
     }
 
     function pad(n) { return String(n).padStart(2, '0'); }
+    function safeKey(s) { return s.replace(/[.#$[\]/]/g, '_'); }
+    function escHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-    function escHtml(str) {
-      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
-
-    // ── Paleisti ──────────────────────────────────────────────
     init();
 
   })();
