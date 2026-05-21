@@ -189,12 +189,10 @@
     // ── Resume saved session ──────────────────────────────────
     const savedNick     = localStorage.getItem('geolympics_nick');
     const savedKey      = localStorage.getItem('geolympics_key');
-    const savedMode     = localStorage.getItem('geolympics_mode');   // 'solo' | 'group'
-    const savedGroupKey = localStorage.getItem('geolympics_group');  // safeKey of group name
+    const savedMode     = localStorage.getItem('geolympics_mode');
+    const savedGroupKey = localStorage.getItem('geolympics_group');
 
     if (savedNick && savedKey) {
-      // Verify player record still exists before redirecting to prevent
-      // redirect loop when a reset deletes players mid-session.
       Promise.all([
         db.ref('game/started').once('value'),
         db.ref('players/' + savedKey).once('value')
@@ -236,10 +234,6 @@
         if (snap.exists()) {
           loginError.textContent = 'Šis slapyvardis jau naudojamas!';
           resetLoginBtn();
-          // FIX (Bug 1): use sentinel reject so the success .then() is skipped.
-          // Previously returned undefined — same as a successful Firebase write —
-          // so the guard `if (v === undefined) return` always bailed and
-          // showWaiting() was never reached.
           return Promise.reject('handled');
         }
         return db.ref('players/' + key).set({
@@ -252,14 +246,13 @@
           joinedAt:        firebase.database.ServerValue.TIMESTAMP
         });
       }).then(() => {
-        // Only reached on a successful write — no undefined-guard needed.
         localStorage.setItem('geolympics_nick',  nick);
         localStorage.setItem('geolympics_key',   key);
         localStorage.setItem('geolympics_mode',  'solo');
         localStorage.removeItem('geolympics_group');
         showWaiting(nick, 'solo', null);
       }).catch(err => {
-        if (err === 'handled') return; // duplicate already shown — do nothing
+        if (err === 'handled') return;
         loginError.textContent = 'Klaida. Patikrinkite interneto ryšį.';
         resetLoginBtn();
       });
@@ -284,7 +277,6 @@
       const nErr = validateNick(nick);
       if (nErr) { createError.textContent = 'Slapyvardis: ' + nErr; return; }
 
-      // FIX (Bug 4): disable button to prevent double-submit race condition.
       doCreateBtn.disabled = true;
       doCreateBtn.innerHTML = '<span class="spinner"></span>Kuriama...';
       createError.textContent = '';
@@ -292,24 +284,37 @@
       const gKey = safeKey(groupName);
       const pKey = safeKey(nick);
 
-      db.ref('groups/' + gKey).once('value').then(snap => {
-        if (snap.exists()) {
-          createError.textContent = 'Grupė su šiuo pavadinimu jau egzistuoja!';
+      // ── FIX Bug 1: check global player uniqueness before writing ──
+      db.ref('players/' + pKey).once('value').then(pSnap => {
+        if (pSnap.exists()) {
+          createError.textContent = 'Šis slapyvardis jau naudojamas kitame žaidime!';
           resetCreateBtn();
-          // FIX (Bug 2): same sentinel pattern as solo login.
-          // db.ref().update() also resolves to undefined on success, so the
-          // old `if (v === undefined) return` guard always fired and
-          // showWaiting() was never called after a successful group creation.
           return Promise.reject('handled');
         }
 
-        const updates = {};
-        updates['groups/' + gKey] = {
-          name:      groupName,
-          createdAt: firebase.database.ServerValue.TIMESTAMP,
-          members:   { [pKey]: { nickname: nick, joinedAt: firebase.database.ServerValue.TIMESTAMP } }
-        };
-        updates['players/' + pKey] = {
+        // ── FIX Bug 2: use a transaction to atomically create the group ──
+        // Two simultaneous calls with the same group name both pass a plain
+        // once()+exists() check and overwrite each other. A transaction on the
+        // group node is atomic: only the first writer commits; the second aborts.
+        return db.ref('groups/' + gKey).transaction(current => {
+          if (current !== null) return; // abort — group already exists
+          return {
+            name:      groupName,
+            createdAt: Date.now(),
+            members:   { [pKey]: { nickname: nick, joinedAt: Date.now() } }
+          };
+        });
+      }).then(result => {
+        // result is undefined when coming from the player-exists rejection path
+        // (already handled above), so guard here is safe.
+        if (!result || !result.committed) {
+          createError.textContent = 'Grupė su šiuo pavadinimu jau egzistuoja!';
+          resetCreateBtn();
+          return Promise.reject('handled');
+        }
+
+        // Transaction committed — now write the player record.
+        return db.ref('players/' + pKey).set({
           nickname:        nick,
           mode:            'group',
           groupKey:        gKey,
@@ -318,17 +323,14 @@
           startTime:       null,
           finishTime:      null,
           joinedAt:        firebase.database.ServerValue.TIMESTAMP
-        };
-
-        return db.ref().update(updates);
+        });
       }).then(() => {
-        // Only reached on a successful write.
         localStorage.setItem('geolympics_nick',      nick);
-        localStorage.setItem('geolympics_key',       safeKey(nick));
+        localStorage.setItem('geolympics_key',       pKey);
         localStorage.setItem('geolympics_mode',      'group');
-        localStorage.setItem('geolympics_group',     safeKey(groupName));
+        localStorage.setItem('geolympics_group',     gKey);
         localStorage.setItem('geolympics_groupName', groupName);
-        showWaiting(nick, 'group', safeKey(groupName));
+        showWaiting(nick, 'group', gKey);
       }).catch(err => {
         if (err === 'handled') return;
         createError.textContent = 'Klaida. Patikrinkite interneto ryšį.';
@@ -355,7 +357,6 @@
       const nErr = validateNick(nick);
       if (nErr) { joinError.textContent = 'Slapyvardis: ' + nErr; return; }
 
-      // FIX (Bug 5): disable button to prevent double-submit race condition.
       doJoinBtn.disabled = true;
       doJoinBtn.innerHTML = '<span class="spinner"></span>Jungiamasi...';
       joinError.textContent = '';
@@ -363,40 +364,67 @@
       const gKey = safeKey(groupName);
       const pKey = safeKey(nick);
 
-      db.ref('groups/' + gKey).once('value').then(snap => {
+      // ── FIX Bug 1: check global player uniqueness before writing ──
+      db.ref('players/' + pKey).once('value').then(pSnap => {
+        if (pSnap.exists()) {
+          joinError.textContent = 'Šis slapyvardis jau naudojamas kitame žaidime!';
+          resetJoinBtn();
+          return Promise.reject('handled');
+        }
+        return db.ref('groups/' + gKey).once('value');
+      }).then(snap => {
         if (!snap.exists()) {
           joinError.textContent = 'Grupė "' + groupName + '" nerasta. Patikrinkite pavadinimą.';
           resetJoinBtn();
           return Promise.reject('handled');
         }
-        const members = snap.val().members || {};
-        if (Object.keys(members).length >= 4) {
-          joinError.textContent = 'Grupė pilna! (max. 4 nariai)';
-          resetJoinBtn();
-          return Promise.reject('handled');
-        }
-        if (members[pKey]) {
-          joinError.textContent = 'Šis slapyvardis grupėje jau naudojamas!';
-          resetJoinBtn();
-          return Promise.reject('handled');
+
+        const resolvedGroupName = snap.val().name;
+
+        // ── FIX Bug 3: use a transaction on members to atomically enforce
+        // the 4-member cap. A plain once()+update() allows two simultaneous
+        // joiners who both see length=3 to both proceed, yielding 5 members.
+        return db.ref('groups/' + gKey + '/members').transaction(currentMembers => {
+          if (currentMembers === null) {
+            // Group exists but has no members node yet — initialise with this player.
+            return { [pKey]: { nickname: nick, joinedAt: Date.now() } };
+          }
+          const count = Object.keys(currentMembers).length;
+          if (count >= 4) return; // abort — group is full
+          if (currentMembers[pKey]) return; // abort — nickname already in group
+          // Atomic add.
+          const updated = Object.assign({}, currentMembers);
+          updated[pKey] = { nickname: nick, joinedAt: Date.now() };
+          return updated;
+        }).then(result => ({ result, resolvedGroupName }));
+      }).then(({ result, resolvedGroupName }) => {
+        if (!result.committed) {
+          // Determine why the transaction aborted by re-reading members.
+          return db.ref('groups/' + gKey + '/members').once('value').then(mSnap => {
+            const members = mSnap.val() || {};
+            if (Object.keys(members).length >= 4) {
+              joinError.textContent = 'Grupė pilna! (max. 4 nariai)';
+            } else if (members[pKey]) {
+              joinError.textContent = 'Šis slapyvardis grupėje jau naudojamas!';
+            } else {
+              joinError.textContent = 'Nepavyko prisijungti. Bandykite dar kartą.';
+            }
+            resetJoinBtn();
+            return Promise.reject('handled');
+          });
         }
 
-        const updates = {};
-        updates['groups/' + gKey + '/members/' + pKey] = {
-          nickname: nick,
-          joinedAt: firebase.database.ServerValue.TIMESTAMP
-        };
-        updates['players/' + pKey] = {
+        // Transaction committed — write the player record.
+        return db.ref('players/' + pKey).set({
           nickname:        nick,
           mode:            'group',
           groupKey:        gKey,
-          groupName:       snap.val().name,
+          groupName:       resolvedGroupName,
           currentWaypoint: 1,
           startTime:       null,
           finishTime:      null,
           joinedAt:        firebase.database.ServerValue.TIMESTAMP
-        };
-        return db.ref().update(updates).then(() => snap.val().name);
+        }).then(() => resolvedGroupName);
       }).then(resolvedGroupName => {
         localStorage.setItem('geolympics_nick',      nick);
         localStorage.setItem('geolympics_key',       pKey);
@@ -418,7 +446,7 @@
 
     // ── WAITING ROOM ──────────────────────────────────────────
     let _gameStartedCb = null;
-    let _membersRef    = null; // FIX (Bug 3): track members listener for proper cleanup
+    let _membersRef    = null;
 
     function showWaiting(nick, mode, groupKey) {
       showScreen(waitingScreen);
@@ -426,10 +454,6 @@
 
       const groupPanel = document.getElementById('group-members-panel');
 
-      // FIX (Bug 3): detach previous members listener before re-attaching.
-      // Without this, calling showWaiting() more than once stacks duplicate
-      // listeners on the same Firebase ref, causing redundant renders and
-      // potential memory leaks.
       if (_membersRef) { _membersRef.off('value'); _membersRef = null; }
 
       if (mode === 'group' && groupKey) {
@@ -437,7 +461,6 @@
         const savedGroupName = localStorage.getItem('geolympics_groupName') || groupKey;
         document.getElementById('waiting-group-name').textContent = savedGroupName;
 
-        // Store ref so we can detach it later
         _membersRef = db.ref('groups/' + groupKey + '/members');
         _membersRef.on('value', snap => {
           const members = snap.val() || {};
@@ -450,12 +473,9 @@
         groupPanel.classList.add('hidden');
       }
 
-      // Detach previous game/started listener before attaching new one
       if (_gameStartedCb) db.ref('game/started').off('value', _gameStartedCb);
       _gameStartedCb = db.ref('game/started').on('value', snap => {
         if (snap.val() === true) {
-          // Verify player still exists before navigating (guards against
-          // redirect loop when reset happens mid-wait)
           const key = localStorage.getItem('geolympics_key');
           db.ref('players/' + key).once('value').then(pSnap => {
             if (pSnap.exists()) {
