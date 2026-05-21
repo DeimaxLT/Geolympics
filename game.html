@@ -165,8 +165,8 @@
     'use strict';
 
     const TOTAL_WAYPOINTS = 10;
-    const STAGGER_MS      = 3 * 60 * 1000;  // 3-minute stagger window
-    const CD_SECS         = 3;              // final 3-2-1 seconds
+    const STAGGER_MS      = 3 * 60 * 1000;
+    const CD_SECS         = 3;
 
     // ── Player identity ───────────────────────────────────────
     const nickname  = localStorage.getItem('geolympics_nick');
@@ -192,17 +192,14 @@
     let currentWaypoint = 1;
     let myStartTime     = null;
     let waypoints       = {};
-    let gameDurationMs  = 60 * 60 * 1000;   // default; overwritten from Firebase
+    let gameDurationMs  = 60 * 60 * 1000;
     let timerInterval   = null;
     let scannerActive   = false;
     let html5QrCode     = null;
 
-    // ── FIX 3: idempotent showScreen ─────────────────────────
-    // Tracks which screen is currently active so repeated calls
-    // to showScreen() with the same target are no-ops.
     let _activeScreen = null;
     function showScreen(target) {
-      if (_activeScreen === target) return;   // ← no-op if already there
+      if (_activeScreen === target) return;
       _activeScreen = target;
       ALL_SCREENS.forEach(s => s.classList.add('hidden'));
       target.classList.remove('hidden');
@@ -227,16 +224,10 @@
     //  INIT
     // ════════════════════════════════════════════
     function init() {
-
-      // ── FIX 4: single game/congratulate listener, attached once ──
-      // Previously showFinishedScreen() and showTimeUp() each called
-      // db.ref('game/congratulate').on(), accumulating duplicates.
-      // Now it lives here and is never re-attached.
       db.ref('game/congratulate').on('value', snap => {
         if (snap.val() === true) showCongratsScreen();
       });
 
-      // Force-end redirect (congratulate is handled above, not here)
       db.ref('game').on('value', snap => {
         const d = snap.val() || {};
         if (d.started === false && d.ended === true) {
@@ -244,15 +235,10 @@
         }
       });
 
-      // ── FIX 1: sequential loading so durationMs is always resolved
-      // before loadPlayerState() runs.
-      // Previously durationMs and waypoints were fetched in parallel, so a
-      // slow connection could resolve waypoints first, triggering
-      // loadPlayerState() while gameDurationMs was still the default.
       db.ref('game/durationMs').once('value')
         .then(snap => {
           if (snap.val()) gameDurationMs = snap.val();
-          return db.ref('game/waypoints').once('value');  // then waypoints
+          return db.ref('game/waypoints').once('value');
         })
         .then(snap => {
           waypoints = snap.exists() ? snap.val() : {};
@@ -261,7 +247,7 @@
               waypoints[wp.id] = { lat: wp.lat, lng: wp.lng, hint: wp.hint };
             });
           }
-          return loadPlayerState();  // then player state — duration is guaranteed ready
+          return loadPlayerState();
         })
         .catch(err => console.error('Init error:', err));
     }
@@ -320,7 +306,6 @@
     // ════════════════════════════════════════════
     let startQr         = null;
     let startScanActive = false;
-    // ── FIX 6 (part 1): store ref so we can detach in enterGame ──
     let _startMembersRef = null;
 
     function initStartScanner() {
@@ -404,8 +389,6 @@
     }
 
     function watchGroupStartScan() {
-      // ── FIX for watchGroupStartScan: guard prevents enterCountdown being
-      // called multiple times when the .on() listener fires repeatedly.
       let countdownStarted = false;
 
       db.ref('groups/' + groupKey).on('value', snap => {
@@ -414,15 +397,12 @@
         const members    = g.members || {};
         const allScanned = Object.values(members).every(m => m.startScanned);
 
-        // Only the first client to see allScanned tries to set startTime;
-        // the transaction-like check !g.startTime prevents duplicates.
         if (allScanned && !g.startTime) {
           db.ref('groups/' + groupKey + '/startTime').set(Date.now());
         }
 
         if (g.startTime && !countdownStarted) {
           countdownStarted = true;
-          // Detach immediately — we only needed this until startTime was set.
           db.ref('groups/' + groupKey).off('value');
 
           db.ref('players/' + playerKey + '/startTime').once('value').then(s => {
@@ -440,7 +420,6 @@
     // ════════════════════════════════════════════
     //  COUNTDOWN
     // ════════════════════════════════════════════
-    // ── FIX 6 (part 2): store the countdown members listener ref ──
     let _cdMembersRef = null;
 
     function enterCountdown(myStart) {
@@ -450,7 +429,12 @@
         document.getElementById('cd-group-panel').classList.remove('hidden');
         document.getElementById('cd-group-name').textContent = groupName || groupKey;
 
-        // Store ref so we can detach it when enterGame() is called.
+        // ── FIX Bug 5: detach previous listener before re-attaching ──
+        // If enterCountdown() is called more than once (e.g. page reload
+        // mid-countdown), the prior listener would be orphaned, causing
+        // the member list to be rendered by multiple independent callbacks.
+        if (_cdMembersRef) { _cdMembersRef.off('value'); _cdMembersRef = null; }
+
         _cdMembersRef = db.ref('groups/' + groupKey + '/members');
         _cdMembersRef.on('value', snap => {
           const members = snap.val() || {};
@@ -496,14 +480,11 @@
     //  MAIN GAME
     // ════════════════════════════════════════════
     function enterGame() {
-      // ── FIX 6 (part 3): detach countdown members listener now that we're in game ──
       if (_cdMembersRef) { _cdMembersRef.off('value'); _cdMembersRef = null; }
-      // ── FIX 6 (part 4): detach start-screen members listener ──
       if (_startMembersRef) { _startMembersRef.off('value'); _startMembersRef = null; }
 
       showScreen(gameScreen);
 
-      // Resolve myStartTime if it wasn't set in memory (e.g. page reload mid-game)
       const timerReady = myStartTime
         ? Promise.resolve()
         : db.ref('players/' + playerKey + '/startTime').once('value').then(s => {
@@ -515,7 +496,6 @@
       if (mode === 'group' && groupKey) {
         document.getElementById('group-scan-status').classList.remove('hidden');
 
-        // Sync waypoint advances pushed by whoever called advanceWaypoint()
         db.ref('groups/' + groupKey + '/currentWaypoint').on('value', snap => {
           const gWp = snap.val();
           if (gWp && gWp > currentWaypoint) {
@@ -530,17 +510,10 @@
         watchGroupScanStatus();
       }
 
-      // ── FIX 2 & 3: player listener guards ──────────────────────
-      // Previously every DB write (e.g. waypoint scan, timeLeft, readyForFinish)
-      // re-triggered showFinishedScreen / showTimeUp / enterFinishScan even
-      // when the player was already on the correct screen.
-      // The _activeScreen check (via showScreen's idempotency) plus explicit
-      // guards here prevent any repeated or spurious screen transitions.
       db.ref('players/' + playerKey).on('value', snap => {
         const data = snap.val();
         if (!data) return;
 
-        // Only handle terminal states if we haven't already shown that screen.
         if (data.timeUp && _activeScreen !== timeupScreen) {
           showTimeUp(data); return;
         }
@@ -549,11 +522,9 @@
             _activeScreen !== congratsScreen) {
           showFinishedScreen(data.finishTime); return;
         }
-        // readyForFinish only relevant while in the game screen
         if (data.readyForFinish && _activeScreen === gameScreen) {
           enterFinishScan(); return;
         }
-        // Only update game UI when we're actually on the game screen
         if (_activeScreen !== gameScreen) return;
         currentWaypoint = data.currentWaypoint || 1;
         updateGameUI(currentWaypoint);
@@ -602,17 +573,12 @@
       }
     }
 
-    // ── FIX 5: group scan status — store ref + cb, detach before re-attach ──
-    // Previously watchGroupScanStatus() called .on() every time it was
-    // invoked without ever calling .off(), leaving dangling listeners on
-    // every previous waypoint's wpScans path.
     let _groupScanRef = null;
     let _groupScanCb  = null;
 
     function watchGroupScanStatus() {
       if (!groupKey) return;
 
-      // Detach the previous listener (if any) before attaching a new one.
       if (_groupScanRef && _groupScanCb) {
         _groupScanRef.off('value', _groupScanCb);
       }
@@ -685,7 +651,6 @@
       const now = Date.now();
 
       if (mode === 'group' && groupKey) {
-        // Write this member's scan, then atomically claim advancement
         db.ref('groups/' + groupKey + '/wpScans/' + currentWaypoint + '/' + playerKey)
           .set(true)
           .then(() => Promise.all([
@@ -702,19 +667,12 @@
               return;
             }
 
-            // ── FIX 7: transaction prevents two clients from both passing
-            // the allScanned check and both calling advanceWaypoint().
-            // The transaction on wpAdvanced/N is atomic: only the first
-            // client to write null→true will get committed:true.
-            // The second client's transaction aborts (committed:false)
-            // and waits for the group/currentWaypoint listener to advance it.
             return db.ref('groups/' + groupKey + '/wpAdvanced/' + currentWaypoint)
               .transaction(current => current === null ? true : undefined)
               .then(result => {
                 if (result.committed) {
-                  advanceWaypoint(now);  // winner — advance everyone
+                  advanceWaypoint(now);
                 }
-                // loser: group/currentWaypoint listener in enterGame() handles update
               });
           })
           .catch(err => {
@@ -742,7 +700,6 @@
               updates['players/' + k + '/currentWaypoint'] = nextWp;
             }
           });
-          // Always write group's currentWaypoint so the listener in enterGame fires
           updates['groups/' + groupKey + '/currentWaypoint'] = nextWp;
           return db.ref().update(updates);
         }).then(() => {
@@ -778,16 +735,21 @@
 
     // ════════════════════════════════════════════
     //  FINISH QR SCAN
-    //  Groups: everyone must scan individually;
-    //  first to complete all checks records finish for the whole group.
     // ════════════════════════════════════════════
     let finishQr           = null;
     let finishScanActive   = false;
     let iHaveScannedFinish = false;
 
+    // ── FIX Bug 4: store finishScans listener ref so it can be detached ──
+    // The listener was previously attached but never removed. After the player
+    // reached finishScreen or congratsScreen every subsequent write to
+    // finishScans kept triggering the callback — repeatedly calling
+    // recordGroupFinish() and making redundant once() reads to members.
+    let _finishScansRef = null;
+    let _finishScansCb  = null;
+
     function enterFinishScan() {
       if (timerInterval) clearInterval(timerInterval);
-      // Detach group scan listener — no longer needed
       if (_groupScanRef && _groupScanCb) {
         _groupScanRef.off('value', _groupScanCb);
         _groupScanRef = null; _groupScanCb = null;
@@ -798,7 +760,13 @@
         document.getElementById('finish-group-status').classList.remove('hidden');
         document.getElementById('finish-group-name').textContent = groupName || groupKey;
 
-        db.ref('groups/' + groupKey + '/finishScans').on('value', snap => {
+        // Detach any prior finishScans listener before re-attaching.
+        if (_finishScansRef && _finishScansCb) {
+          _finishScansRef.off('value', _finishScansCb);
+        }
+
+        _finishScansRef = db.ref('groups/' + groupKey + '/finishScans');
+        _finishScansCb  = _finishScansRef.on('value', snap => {
           const scans = snap.val() || {};
           db.ref('groups/' + groupKey + '/members').once('value').then(mSnap => {
             const members = mSnap.val() || {};
@@ -866,7 +834,6 @@
         db.ref('groups/' + groupKey + '/finishScans/' + playerKey).set(true)
           .then(() => {
             showMsg(finishScanMsg, '✅ Nuskenavote! Laukiama kitų grupės narių...', 'success');
-            // The .on() listener in enterFinishScan handles "all done" detection
           });
       } else {
         const now   = Date.now();
@@ -879,16 +846,12 @@
       }
     }
 
-    // ── FIX 2 (group): use a transaction so only one client records the finish ──
-    // Previously the .on() listener could trigger recordGroupFinish() on multiple
-    // devices simultaneously, writing finishTime more than once.
     function recordGroupFinish() {
-      // Transaction on finishTime: only the first writer wins.
       db.ref('groups/' + groupKey + '/finishTime').transaction(current => {
         if (current === null) return Date.now();
-        return undefined; // abort — already recorded
+        return undefined;
       }).then(result => {
-        if (!result.committed) return; // another device beat us to it — do nothing
+        if (!result.committed) return;
 
         const now   = result.snapshot.val();
         const left  = Math.max(0, gameDurationMs - (myStartTime ? now - myStartTime : 0));
@@ -927,13 +890,21 @@
         : foundNums.map(n =>
             `<div class="group-member-item scanned" style="margin-bottom:6px;">✅ Waypoint ${n}</div>`
           ).join('');
-      // Note: game/congratulate listener is already active from init() — no re-attach needed.
     }
 
     // ── Show finished screen ──────────────────────────────────
     function showFinishedScreen(finishTime) {
       if (timerInterval) clearInterval(timerInterval);
-      showScreen(finishScreen);   // idempotent — safe to call multiple times
+
+      // ── FIX Bug 4 (cleanup): detach the finishScans listener now that the
+      // player has fully finished. Without this the listener stays alive
+      // indefinitely, making redundant DB reads on every future finishScans write.
+      if (_finishScansRef && _finishScansCb) {
+        _finishScansRef.off('value', _finishScansCb);
+        _finishScansRef = null; _finishScansCb = null;
+      }
+
+      showScreen(finishScreen);
 
       db.ref('players/' + playerKey + '/timeLeft').once('value').then(snap => {
         const left = snap.val();
@@ -943,7 +914,6 @@
           document.getElementById('finish-time-val').textContent = pad(m) + 'm ' + pad(s) + 's';
         }
       });
-      // Note: game/congratulate listener is already active from init() — no re-attach needed.
     }
 
     // ── Helpers ───────────────────────────────────────────────
@@ -974,5 +944,7 @@
   })();
   </script>
 
+</body>
+</html>
 </body>
 </html>
