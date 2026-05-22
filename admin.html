@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="lt">
 <head>
@@ -177,6 +178,13 @@
     const saveDurationBtn  = document.getElementById('save-duration-btn');
     const saveDurationMsg  = document.getElementById('save-duration-msg');
 
+    // ── FIX Bug 4: guard against initAdmin() being called more than once ──
+    // showAdminPanel() is reachable via two paths: the session auto-login at
+    // script load time AND checkPassword(). Without a guard both paths call
+    // initAdmin(), which attaches duplicate .on() listeners to 'game',
+    // 'players', and 'groups' — causing every DB event to render twice.
+    let _adminInitialised = false;
+
     // Išsaugota sesija
     if (sessionStorage.getItem('geolympics_admin') === 'true') {
       showAdminPanel();
@@ -208,6 +216,10 @@
 
     // ── Admin inicializacija ──────────────────────────────────
     function initAdmin() {
+      // FIX Bug 4: skip if already initialised — prevents duplicate listeners.
+      if (_adminInitialised) return;
+      _adminInitialised = true;
+
       buildWaypointForm();
       buildQRValuesList();
       loadDurationSetting();
@@ -246,23 +258,36 @@
         const ended   = data.ended   === true;
 
         if (ended) {
-          statusPill.className      = 'status-pill ended';
-          statusText.textContent    = 'Žaidimas baigtas';
-          // FIX: allow starting a new game after ending (was incorrectly disabled)
-          startBtn.disabled         = false;
-          endBtn.disabled           = true;
-          congratsBtn.classList.remove('hidden');
+          statusPill.className   = 'status-pill ended';
+          statusText.textContent = 'Žaidimas baigtas';
+          startBtn.disabled      = false;
+          endBtn.disabled        = true;
+
+          // FIX Bug 2: only show congratsBtn when there are actual finishers.
+          // Previously it was shown unconditionally whenever the game ended,
+          // contradicting the code comment and the intent of the button.
+          db.ref('players').once('value').then(pSnap => {
+            const players   = Object.values(pSnap.val() || {});
+            const hasFinishers = players.some(p => p.finishTime);
+            if (hasFinishers) {
+              congratsBtn.classList.remove('hidden');
+            } else {
+              congratsBtn.classList.add('hidden');
+            }
+          });
+
         } else if (started) {
-          statusPill.className      = 'status-pill active';
-          statusText.textContent    = 'Žaidimas vyksta';
-          startBtn.disabled         = true;
-          endBtn.disabled           = false;
+          statusPill.className   = 'status-pill active';
+          statusText.textContent = 'Žaidimas vyksta';
+          startBtn.disabled      = true;
+          endBtn.disabled        = false;
           congratsBtn.classList.add('hidden');
+
         } else {
-          statusPill.className      = 'status-pill';
-          statusText.textContent    = 'Žaidimas nepradėtas';
-          startBtn.disabled         = false;
-          endBtn.disabled           = true;
+          statusPill.className   = 'status-pill';
+          statusText.textContent = 'Žaidimas nepradėtas';
+          startBtn.disabled      = false;
+          endBtn.disabled        = true;
           congratsBtn.classList.add('hidden');
         }
       });
@@ -272,11 +297,19 @@
     startBtn.addEventListener('click', () => {
       if (!confirm('Pradėti žaidimą? Visi žaidėjai bus perkelti į žaidimo ekraną.')) return;
 
+      // FIX Bug 1: reset congratsBtn to its default state before starting a
+      // new game. If the admin sent congratulations in the previous round the
+      // button was left disabled with stale text. Without this reset, ending
+      // the new game would reveal an un-clickable broken button.
+      congratsBtn.disabled    = false;
+      congratsBtn.textContent = '🎉 SVEIKINTI VISUS NUGALĖTOJUS';
+      congratsBtn.classList.add('hidden');
+
       const now = Date.now();
       db.ref('game').update({
-        started:   true,
-        ended:     false,
-        startTime: now,
+        started:      true,
+        ended:        false,
+        startTime:    now,
         congratulate: false
       }).then(() => {
         showToast('▶ Žaidimas pradėtas!', 'success');
@@ -299,7 +332,7 @@
 
       db.ref('game/congratulate').set(true).then(() => {
         showToast('🎉 Sveikinimas išsiųstas visiems žaidėjams!', 'success');
-        congratsBtn.disabled = true;
+        congratsBtn.disabled    = true;
         congratsBtn.textContent = '✅ Sveikinimas išsiųstas!';
       });
     });
@@ -308,9 +341,6 @@
       if (!confirm('⚠️ RESET: Ištrinti VISUS žaidėjus ir grupes ir pradėti iš naujo?')) return;
       if (!confirm('Ar tikrai? Šis veiksmas NEGRĮŽTAMAS!')) return;
 
-      // FIX: use remove() for players and groups nodes.
-      // update({players: null}) can silently fail to delete root-level nodes
-      // in some Firebase SDK versions. remove() is the reliable way.
       Promise.all([
         db.ref('players').remove(),
         db.ref('groups').remove()
@@ -324,7 +354,7 @@
       }).then(() => {
         showToast('🔄 Žaidimas nustatytas iš naujo!', 'success');
         congratsBtn.classList.add('hidden');
-        congratsBtn.disabled = false;
+        congratsBtn.disabled    = false;
         congratsBtn.textContent = '🎉 SVEIKINTI VISUS NUGALĖTOJUS';
       }).catch(err => {
         showToast('❌ Reset nepavyko: ' + err.message, 'error');
@@ -340,7 +370,9 @@
         const saved = snap.val() || {};
 
         for (let i = 1; i <= TOTAL_WAYPOINTS; i++) {
-          const wp  = saved[i] || DEFAULT_WAYPOINTS.find(d => d.id === i) || {};
+          const wp  = saved[i] || (typeof DEFAULT_WAYPOINTS !== 'undefined'
+            ? DEFAULT_WAYPOINTS.find(d => d.id === i)
+            : null) || {};
           const row = document.createElement('div');
           row.style.cssText = 'margin-bottom:12px;border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--surface2)';
           row.innerHTML = `
@@ -444,7 +476,7 @@
     };
 
     // ── Žaidėjų & Grupių sąrašai ──────────────────────────────
-    let gameStartTime = null;
+    let gameStartTime  = null;
     let gameDurationMs = 60 * 60 * 1000;
     db.ref('game/startTime').on('value', s => { gameStartTime = s.val(); });
     db.ref('game/durationMs').on('value', s => { if (s.val()) gameDurationMs = s.val(); });
@@ -509,19 +541,22 @@
       }
 
       groupsList.innerHTML = groups.map(g => {
-        const members  = Object.values(g.members || {});
+        const members     = Object.values(g.members || {});
         const memberCount = members.length;
-        const allScanned  = g.startTime != null;
         const finished    = !!g.finishTime;
 
-        // Determine group progress from members
-        const maxWp = members.reduce((max, m) => Math.max(max, m.currentWaypoint || 1), 1);
+        // FIX Bug 3: read currentWaypoint from the group node itself, not from
+        // member objects. Member objects (groups/{gKey}/members/{pKey}) only
+        // store nickname/joinedAt/startScanned — they never have currentWaypoint.
+        // The correct field is groups/{gKey}/currentWaypoint, written by
+        // advanceWaypoint() in game.html. The old code always showed WP 1.
+        const groupWp = g.currentWaypoint || 1;
 
         let statusBadge;
         if (finished) {
           statusBadge = `<span style="color:var(--accent);font-size:12px;">🏁 Finišas</span>`;
-        } else if (allScanned) {
-          statusBadge = `<span style="color:var(--text-mid);font-size:12px;">▶ WP ${maxWp}/10</span>`;
+        } else if (g.startTime) {
+          statusBadge = `<span style="color:var(--text-mid);font-size:12px;">▶ WP ${groupWp}/10</span>`;
         } else {
           statusBadge = `<span style="color:var(--text-muted);font-size:12px;">⏳ Laukia pradžios</span>`;
         }
@@ -552,24 +587,21 @@
         return;
       }
 
-      // Build leaderboard entries — group by groupKey for group players
       const players   = Object.values(data);
       const processed = {};
 
       players.forEach(p => {
         if (p.mode === 'group' && p.groupKey) {
-          // Only process group once
           if (!processed['group_' + p.groupKey]) {
             processed['group_' + p.groupKey] = {
-              isGroup:    true,
-              name:       p.groupName || p.groupKey,
-              finishTime: p.finishTime || null,
-              timeLeft:   p.timeLeft   || null,
-              timeUp:     p.timeUp     || false,
+              isGroup:         true,
+              name:            p.groupName || p.groupKey,
+              finishTime:      p.finishTime || null,
+              timeLeft:        p.timeLeft   || null,
+              timeUp:          p.timeUp     || false,
               currentWaypoint: p.currentWaypoint || 1
             };
           }
-          // Update with best (earliest finish)
           const entry = processed['group_' + p.groupKey];
           if (p.finishTime && (!entry.finishTime || p.finishTime < entry.finishTime)) {
             entry.finishTime = p.finishTime;
@@ -580,11 +612,11 @@
           }
         } else {
           processed['solo_' + safeKey(p.nickname || '')] = {
-            isGroup:    false,
-            name:       p.nickname || '—',
-            finishTime: p.finishTime || null,
-            timeLeft:   p.timeLeft  || null,
-            timeUp:     p.timeUp    || false,
+            isGroup:         false,
+            name:            p.nickname || '—',
+            finishTime:      p.finishTime || null,
+            timeLeft:        p.timeLeft  || null,
+            timeUp:          p.timeUp    || false,
             currentWaypoint: p.currentWaypoint || 1
           };
         }
@@ -596,7 +628,6 @@
         return;
       }
 
-      // Sort: finished first (by time left desc = most remaining = best), then by wp desc
       const finished = all.filter(e => e.finishTime).sort((a, b) => (b.timeLeft || 0) - (a.timeLeft || 0));
       const playing  = all.filter(e => !e.finishTime).sort((a, b) => b.currentWaypoint - a.currentWaypoint);
       const sorted   = [...finished, ...playing];
@@ -605,8 +636,8 @@
       const mClass  = ['gold','silver','bronze'];
 
       container.innerHTML = sorted.map((e, i) => {
-        const fin    = !!e.finishTime;
-        const rank   = i < 3
+        const fin  = !!e.finishTime;
+        const rank = i < 3
           ? `<span class="lb-rank ${mClass[i]}">${medals[i]}</span>`
           : `<span class="lb-rank other">${i + 1}</span>`;
 
